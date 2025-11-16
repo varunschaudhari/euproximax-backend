@@ -183,4 +183,3 @@ module.exports = {
     login,
     getMe
 };
-

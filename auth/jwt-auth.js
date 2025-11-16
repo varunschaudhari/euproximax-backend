@@ -62,62 +62,23 @@ class JwtAuth {
   /**
    * Verify the payload and queries the user from db
    */
-  verify(jwtPayload, cb) {
+  async verify(jwtPayload, cb) {
     try {
-      const decodedPayload = this.decrypt(
-        jwtPayload.sub,
-        this.key
-      );
-      const user = JSON.parse(decodedPayload);
+      const decodedPayload = this.decrypt(jwtPayload.sub, this.key);
+      const tokenUser = JSON.parse(decodedPayload);
 
-      User.findOne({
-        email: String(user.email).toLowerCase()
-        // status: { $ne: 'DELETED' } // Uncomment if you add status field to User model
-      }, (err, data) => {
-        if (err) {
-          return cb(err);
-        }
+      const data = await User.findOne({
+        email: String(tokenUser.email).toLowerCase()
+      }).lean();
 
-        if (!data) {
-          const errObj = {
-            message: 'USER_NOT_FOUND',
-            code: 1004,
-            status: 401
-          };
-          return cb(errObj);
-        }
+      if (!data) {
+        const errObj = { message: 'USER_NOT_FOUND', code: 1004, status: 401 };
+        return cb(errObj);
+      }
 
-        return cb(null, data);
-        // expire payload if user is inactive for > 7 days
-        // if ((data.lastActive) && data.lastActive < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
-        //     const errObj = {
-        //         message: 'EXPIRED_TOKEN',
-        //         code: 1004,
-        //         status: 401
-        //     };
-        //     logger.error(`Token expired for user ${user.email}`);
-        //     return cb(errObj);
-        // }
-
-        // should remain logged-in in 2 devices
-        // if ((data.logoutNum - 1) > (user.logoutNum)) {
-        //     const errObj = {
-        //         message: 'EXPIRED_TOKEN',
-        //         code: 1004,
-        //         status: 401
-        //     };
-        //     return cb(errObj);
-        // }
-
-        // data.lastActive = new Date();
-        // User.updateOne({_id: data._id}, {$set: {lastActive: new Date()}}).then(() => {
-        //     return cb(null, data);
-        // }).catch((err) => {
-        //     return cb(err);
-        // });
-      });
+      return cb(null, data);
     } catch (err) {
-      logger.error('Unable to decrypt token %s', err);
+      logger.error('Unable to decrypt/verify token', err);
       return cb(err);
     }
   }

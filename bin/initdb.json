@@ -1,0 +1,70 @@
+{
+	"users": {
+		"name": "Varun",
+		"username": "varun",
+		"mobileNumber": "9876543210",
+		"email": "varun@gmail.com",
+		"password": "varun123",
+		"jobDescription": "Software Engineer"
+	},
+	"roles": [
+		{
+			"rolename": "superuser"
+		},
+		{
+			"rolename": "admin"
+		}
+	],
+	"permissions": [
+		{
+			"rolename": "superuser",
+			"type": "USER",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "USER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "USER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "USER",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "ROLES",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "ROLES",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "ROLES",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "ROLES",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "admin",
+			"type": "USER",
+			"action": "READ"
+		},
+		{
+			"rolename": "admin",
+			"type": "ROLES",
+			"action": "READ"
+		}
+	]
+}
