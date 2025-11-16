@@ -54,8 +54,6 @@ if (config.server.nodeEnv !== 'production') {
   app.use(cors());
 }
 
-app.use(express.json());
-
 // Initialize Passport middleware
 app.use(passport.initialize());
 

@@ -110,7 +110,35 @@ LOG_LEVEL=info
    - Use MongoDB Atlas (cloud)
    - See `MONGODB_SETUP.md` for detailed instructions
 
-6. **Initialize database** (optional - creates test user):
+6. **Start MongoDB** (if using local MongoDB):
+   
+   **Option A - Using Helper Script (Recommended):**
+   ```powershell
+   # PowerShell (Run as Administrator)
+   .\bin\start-mongodb.ps1
+   
+   # Or Batch file (Run as Administrator)
+   .\bin\start-mongodb.bat
+   ```
+   
+   **Option B - Windows Service:**
+   ```powershell
+   # Run PowerShell as Administrator
+   net start MongoDB
+   ```
+   
+   **Option C - Manual Start:**
+   ```powershell
+   # Run in a separate terminal
+   mongod --dbpath "C:\data\db"
+   ```
+   
+   **Option D - Use MongoDB Atlas (Cloud):**
+   - Sign up at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+   - Create a cluster and get connection string
+   - Update `MONGODB_URI` in `.env` file
+
+7. **Initialize database** (optional - creates test user):
 ```bash
 npm run init
 ```
