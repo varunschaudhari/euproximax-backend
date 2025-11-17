@@ -42,6 +42,7 @@ module.exports = {
       user: process.env.SMTP_USER || 'contact@euproximax.com',
       pass: process.env.SMTP_PASS || ''
     },
-    from: process.env.MAIL_FROM || 'contact@euproximax.com'
+    from: process.env.MAIL_FROM || 'contact@euproximax.com',
+    logoUrl: process.env.LOGO_URL || 'PNG.png' // Full URL to logo for email templates
   }
 };

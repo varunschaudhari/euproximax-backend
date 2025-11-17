@@ -22,7 +22,7 @@ const contactMessageSchema = new mongoose.Schema(
             type: String,
             required: true,
             trim: true,
-            maxlength: 120
+            maxlength: 200
         },
         message: {
             type: String,
