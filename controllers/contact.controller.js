@@ -110,14 +110,6 @@ contact@euproximax.com`;
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                 <tr>
                                     <td style="padding: 35px 40px; text-align: center;">
-                                        <!-- Logo -->
-                                        // <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 20px;">
-                                        //     <tr>
-                                        //         <td>
-                                        //             <img src="${config.mail.logoUrl}" alt="EuProximaX Logo" style="max-width: 180px; height: auto; display: block; margin: 0 auto;" />
-                                        //         </td>
-                                        //     </tr>
-                                        // </table>
                                         <!-- Success Icon -->
                                         <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 15px;">
                                             <tr>
