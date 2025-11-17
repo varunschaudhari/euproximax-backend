@@ -15,6 +15,14 @@ const jwtAuth = new JwtAuth({
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const ACTIVE_USER_CONDITION = {
+    $or: [{ isDeleted: { $exists: false } }, { isDeleted: false }]
+};
+
+const withActiveFilter = (filter = {}) => ({
+    $and: [filter, ACTIVE_USER_CONDITION]
+});
+
 /**
  * Register a new user
  * @route POST /api/v1/auth/register
@@ -29,9 +37,11 @@ const register = async (req, res, next) => {
         logger.info(`Registration attempt - Email: ${email}, Mobile: ${mobile}`);
 
         // Check if user already exists (optimized: single query for both email and mobile)
-        const existingUser = await User.findOne({
-            $or: [{ email: email.toLowerCase() }, { mobile }]
-        });
+        const existingUser = await User.findOne(
+            withActiveFilter({
+                $or: [{ email: email.toLowerCase() }, { mobile }]
+            })
+        );
 
         if (existingUser) {
             if (existingUser.email === email.toLowerCase()) {
@@ -100,7 +110,7 @@ const login = async (req, res, next) => {
         }
 
         // Find user by email and include password field
-        const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+        const user = await User.findOne(withActiveFilter({ email: email.toLowerCase() })).select('+password');
         if (!user) {
             logger.warn(`Login failed - User not found: ${email}`);
             return next(new AppError('Invalid email or password', 401));
@@ -160,7 +170,7 @@ const getMe = async (req, res, next) => {
             return next(new AppError('User not authenticated', 401));
         }
 
-        const user = await User.findById(userId);
+        const user = await User.findOne(withActiveFilter({ _id: userId }));
         if (!user) {
             logger.warn(`GetMe failed - User not found: ${userId}`);
             return next(new AppError('User not found', 404));
@@ -196,7 +206,7 @@ const getUsers = async (req, res, next) => {
         const searchTerm = typeof req.query.search === 'string' ? req.query.search.trim() : '';
         const skip = (page - 1) * limit;
 
-        const filter = searchTerm
+        const searchFilter = searchTerm
             ? {
                 $or: [
                     { name: new RegExp(escapeRegex(searchTerm), 'i') },
@@ -205,6 +215,9 @@ const getUsers = async (req, res, next) => {
                 ]
             }
             : {};
+        const filter = Object.keys(searchFilter).length
+            ? { $and: [searchFilter, ACTIVE_USER_CONDITION] }
+            : ACTIVE_USER_CONDITION;
 
         const [users, total] = await Promise.all([
             User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
@@ -242,7 +255,7 @@ const getUserById = async (req, res, next) => {
         const userId = req.params.id;
 
         const user = await User.findById(userId);
-        if (!user) {
+        if (!user || user.isDeleted) {
             return next(new AppError('User not found', 404));
         }
 
@@ -283,7 +296,7 @@ const updateUser = async (req, res, next) => {
         const normalizedMobile = mobile?.trim();
 
         const user = await User.findById(id);
-        if (!user) {
+        if (!user || user.isDeleted) {
             return next(new AppError('User not found', 404));
         }
 
@@ -424,6 +437,37 @@ const createUser = async (req, res, next) => {
     }
 };
 
+/**
+ * Soft delete user
+ * @route DELETE /api/v1/user/:id
+ * @access Private
+ */
+const deleteUser = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user || user.isDeleted) {
+            return next(new AppError('User not found', 404));
+        }
+
+        user.isDeleted = true;
+        await user.save({ validateBeforeSave: false });
+        await UserRole.deleteMany({ userId: user._id });
+
+        res.status(200).json({
+            success: true,
+            message: 'User deleted successfully'
+        });
+    } catch (error) {
+        logger.error('Delete user error:', {
+            error: error.message,
+            stack: error.stack,
+            userId: req.params.id
+        });
+        next(error);
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -431,5 +475,6 @@ module.exports = {
     getUsers,
     getUserById,
     updateUser,
+    deleteUser,
     createUser
 };

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { body, query } = require('express-validator');
+const { body, query, param } = require('express-validator');
 const userController = require('../controllers/user.controller');
 const handleValidationErrors = require('../middleware/validate');
 
@@ -125,6 +125,14 @@ router.post(
   createUserValidation,
   handleValidationErrors,
   userController.createUser
+);
+
+// DELETE /api/user/:id - Soft delete user
+router.delete(
+  '/:id',
+  [param('id').isMongoId().withMessage('Invalid user ID')],
+  handleValidationErrors,
+  userController.deleteUser
 );
 
 module.exports = router;
