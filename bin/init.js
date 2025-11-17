@@ -24,6 +24,7 @@ const UserRole = require('../models/UserRole');
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const seedData = require('./initdb.json');
+const seedUserData = seedData.users || {};
 
 const connect = async () => {
     let mongoUri = config.database.uri;
@@ -63,14 +64,16 @@ const init = async () => {
         await connect();
 
         // Seed user via Mongoose model (aligns with our schema)
-        const seedUserEmail = seedData.users.email || 'admin@example.com';
+        const seedUserEmail = seedUserData.email || 'admin@example.com';
         let user = await User.findOne({ email: seedUserEmail.toLowerCase() });
         if (!user) {
             const payload = {
-                name: seedData.users.name || 'Admin',
-                mobile: seedData.users.mobileNumber || seedData.users.mobile || '+10000000000',
+                name: seedUserData.name || 'Admin',
+                mobile: seedUserData.mobileNumber || seedUserData.mobile || '+10000000000',
                 email: seedUserEmail.toLowerCase(),
-                password: (seedData.users.password && String(seedData.users.password).length >= 6) ? seedData.users.password : 'ChangeMe123!'
+                password: (seedUserData.password && String(seedUserData.password).length >= 6) ? seedUserData.password : 'ChangeMe123!',
+                designation: seedUserData.designation || 'Founder',
+                remarks: seedUserData.remarks || 'Seeded superuser account'
             };
             user = await User.create(payload);
             logger.info(`👤 User inserted: ${user.email}`);
@@ -98,11 +101,22 @@ const init = async () => {
             logger.info('🔐 Permissions ensured');
         }
 
-        // Assign superuser role
-        const superRole = roleMap['superuser'] || await Role.findOne({ rolename: 'superuser' });
-        if (superRole && user) {
-            await ensureUserRole(user._id, superRole._id);
-            logger.info(`🔗 Assigned role "superuser" to ${user.email}`);
+        // Assign roles to user (defaults to superuser)
+        const userRoles =
+            Array.isArray(seedUserData.roles) && seedUserData.roles.length
+                ? seedUserData.roles
+                : ['superuser'];
+
+        if (user) {
+            for (const roleName of userRoles) {
+                const role = roleMap[roleName] || await Role.findOne({ rolename: roleName });
+                if (!role) {
+                    logger.warn(`⚠️  Role "${roleName}" not found, skipping assignment for ${user.email}`);
+                    continue;
+                }
+                await ensureUserRole(user._id, role._id);
+                logger.info(`🔗 Assigned role "${roleName}" to ${user.email}`);
+            }
         }
 
         // Generate a JWT for quick testing using app secrets

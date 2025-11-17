@@ -5,7 +5,11 @@
 		"mobileNumber": "9876543210",
 		"email": "varun@gmail.com",
 		"password": "varun123",
-		"jobDescription": "Software Engineer"
+		"designation": "Software Engineer",
+		"remarks": "Seeded superuser account for platform setup",
+		"roles": [
+			"superuser"
+		]
 	},
 	"roles": [
 		{
