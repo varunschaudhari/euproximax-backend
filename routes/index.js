@@ -5,6 +5,7 @@ const config = require('../utils/config');
 const authRoutes = require('./auth');
 const userRoutes = require('./user');
 const aclRoutes = require('./acl');
+const contactRoutes = require('./contact');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -17,20 +18,23 @@ const jwtMiddleware = require('../middleware/auth');
  * These routes will bypass JWT middleware
  */
 const authRouteFilter = (req, res, next) => {
-    // Routes that don't require authentication
     const publicRoutes = [
-        '/api/v1/auth/register',
-        '/api/v1/auth/login',
-        '/api/health',
-        '/api/v1/health'
+        { path: '/api/v1/auth/register' },
+        { path: '/api/v1/auth/login' },
+        { path: '/api/health' },
+        { path: '/api/v1/health' },
+        { path: '/api/v1/contact', methods: ['POST'] }
     ];
 
     const isPublicRoute = publicRoutes.some(route => {
-        return req.path === route || req.path === route + '/';
+        const matchPath = req.path === route.path || req.path === route.path + '/';
+        if (!matchPath) return false;
+        if (!route.methods) return true;
+        return route.methods.includes(req.method);
     });
 
     if (isPublicRoute) {
-        return next(); // Skip JWT middleware for public routes
+        return next();
     }
 
     // Apply JWT middleware for protected routes
@@ -47,6 +51,7 @@ const routes = (app) => {
 
     // Public routes (no authentication required)
     app.use('/api/v1/auth', authRoutes);
+    app.use('/api/v1/contact', contactRoutes);
 
     // Protected routes (require authentication)
     app.use('/api/v1/user', userRoutes);

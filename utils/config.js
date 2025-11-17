@@ -23,12 +23,25 @@ module.exports = {
     secret: process.env.JWT_SECRET || 'default-secret-key-change-in-production',
     plSecret: process.env.JWT_PL_SECRET || 'default-payload-secret-key-change-in-production',
     salt: process.env.JWT_SALT || 'default-salt-change-in-production',
-    expiresIn: process.env.JWT_EXPIRE || '7d',
+    expiresIn: process.env.JWT_EXPIRE || '1d',
     algorithm: 'HS256'
   },
 
   // Logging Configuration
   logging: {
     level: process.env.LOG_LEVEL || 'info'
+  },
+
+  // Email Configuration - Hostinger
+  // Hostinger SMTP settings for custom domain emails
+  mail: {
+    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+    port: parseInt(process.env.SMTP_PORT || '587', 10), // 587 for TLS, 465 for SSL
+    secure: process.env.SMTP_SECURE === 'true', // false for port 587 (TLS), true for port 465 (SSL)
+    auth: {
+      user: process.env.SMTP_USER || 'contact@euproximax.com',
+      pass: process.env.SMTP_PASS || ''
+    },
+    from: process.env.MAIL_FROM || 'contact@euproximax.com'
   }
 };
