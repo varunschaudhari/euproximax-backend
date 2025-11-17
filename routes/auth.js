@@ -27,7 +27,17 @@ const registerValidation = [
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number')
+    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+  body('designation')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Designation cannot exceed 100 characters'),
+  body('remarks')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Remarks cannot exceed 500 characters')
 ];
 
 // Validation rules for login

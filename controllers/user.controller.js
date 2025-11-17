@@ -15,12 +15,12 @@ const jwtAuth = new JwtAuth({
  * Register a new user
  * @route POST /api/v1/auth/register
  * @access Public
- * @param {Object} req.body - Request body containing name, mobile, email, password
+ * @param {Object} req.body - Request body containing name, mobile, email, password, designation, remarks
  * @returns {Object} User object and JWT token
  */
 const register = async (req, res, next) => {
     try {
-        const { name, mobile, email, password } = req.body;
+        const { name, mobile, email, password, designation, remarks } = req.body;
 
         logger.info(`Registration attempt - Email: ${email}, Mobile: ${mobile}`);
 
@@ -45,7 +45,9 @@ const register = async (req, res, next) => {
             name: name.trim(),
             mobile: mobile.trim(),
             email: email.toLowerCase().trim(),
-            password
+            password,
+            designation: designation?.trim() || undefined,
+            remarks: remarks?.trim() || undefined
         });
 
         logger.info(`User registered successfully - ID: ${user._id}, Email: ${user.email}`);

@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 
 /**
  * User Schema
- * Fields: id (auto-generated), name, mobile, email, password (hashed with bcrypt), createdAt, lastLogin, updatedAt
+ * Fields: id (auto-generated), name, mobile, email, password (hashed with bcrypt), designation, Remarks, createdAt, lastLogin, updatedAt
  */
 const userSchema = new mongoose.Schema(
   {
@@ -42,6 +42,16 @@ const userSchema = new mongoose.Schema(
     logoutNum: {
       type: Number,
       default: 0
+    },
+    designation: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Designation cannot exceed 100 characters']
+    },
+    remarks: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Remarks cannot exceed 500 characters']
     }
   },
   {
