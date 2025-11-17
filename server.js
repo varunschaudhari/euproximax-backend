@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const passport = require('passport');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -56,6 +57,9 @@ if (config.server.nodeEnv !== 'production') {
 
 // Initialize Passport middleware
 app.use(passport.initialize());
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health check route (before routes setup)
 app.get('/api/health', (req, res) => {

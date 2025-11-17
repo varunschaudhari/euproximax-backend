@@ -30,6 +30,15 @@ const contactMessageSchema = new mongoose.Schema(
             trim: true,
             maxlength: 2000
         },
+        file: {
+            type: String,
+            trim: true
+        },
+        fileName: {
+            type: String,
+            trim: true,
+            maxlength: 255
+        },
         status: {
             type: String,
             enum: ['New', 'In-Progress', 'Closed'],

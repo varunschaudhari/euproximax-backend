@@ -39,12 +39,23 @@ const createContact = async (req, res, next) => {
     // Normalize subject to proper format
     const normalizedSubject = normalizeSubject(subject);
 
+    // Handle file upload if present
+    let filePath = null;
+    let fileName = null;
+    if (req.file) {
+      filePath = `/uploads/contact/${req.file.filename}`;
+      fileName = req.file.originalname;
+      logger.info(`File uploaded for contact: ${fileName} -> ${filePath}`);
+    }
+
     const contact = await ContactMessage.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
       phone: phone?.trim(),
       subject: normalizedSubject,
       message: message.trim(),
+      file: filePath,
+      fileName: fileName,
       meta: {
         userAgent: req.headers['user-agent'],
         ip: req.ip

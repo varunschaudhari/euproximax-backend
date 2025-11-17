@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { body } = require('express-validator');
 const contactController = require('../controllers/contact.controller');
 const handleValidationErrors = require('../middleware/validate');
+const upload = require('../middleware/upload');
+const { AppError } = require('../middleware/errorHandler');
 
 const contactValidation = [
     body('name').trim().isLength({ min: 2, max: 80 }).withMessage('Name is required'),
@@ -12,7 +15,23 @@ const contactValidation = [
     body('message').trim().isLength({ min: 10, max: 2000 }).withMessage('Message should be at least 10 characters')
 ];
 
-router.post('/', contactValidation, handleValidationErrors, contactController.createContact);
+// File upload error handler
+const handleFileUpload = (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+        if (err) {
+            if (err instanceof multer.MulterError) {
+                if (err.code === 'LIMIT_FILE_SIZE') {
+                    return next(new AppError('File size exceeds 10MB limit', 400));
+                }
+                return next(new AppError('File upload error: ' + err.message, 400));
+            }
+            return next(new AppError(err.message || 'File upload failed', 400));
+        }
+        next();
+    });
+};
+
+router.post('/', handleFileUpload, contactValidation, handleValidationErrors, contactController.createContact);
 router.get('/', contactController.listContacts);
 
 module.exports = router;
