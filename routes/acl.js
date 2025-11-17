@@ -19,6 +19,7 @@ router.delete('/permissions', aclController.deletePermissionByRoleId);
 router.post('/user-roles', aclController.setUserRole);
 router.get('/user-roles', aclController.getAllUserOfRole);
 router.delete('/user-roles', aclController.deleteUserFromRoleById);
+router.get('/user-permissions', aclController.getUserPermissions);
 
 module.exports = router;
 
