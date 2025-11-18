@@ -24,7 +24,18 @@ const UserRole = require('../models/UserRole');
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const seedData = require('./initdb.json');
-const seedUserData = seedData.users || {};
+
+const normalizeSeedUsers = (users) => {
+    if (Array.isArray(users) && users.length) {
+        return users;
+    }
+    if (users && typeof users === 'object' && Object.keys(users).length) {
+        return [users];
+    }
+    return [{}];
+};
+
+const seedUsers = normalizeSeedUsers(seedData.users);
 
 const connect = async () => {
     let mongoUri = config.database.uri;
@@ -59,26 +70,40 @@ const ensureUserRole = async (userId, roleId) => {
     return await UserRole.create({ userId, roleId });
 };
 
+const upsertUserAccount = async (seedUser, index = 0) => {
+    const seedUserEmail = (seedUser.email || 'admin@example.com').toLowerCase();
+
+    let user = await User.findOne({ email: seedUserEmail });
+    if (!user) {
+        const fallbackMobile = seedUser.mobileNumber || seedUser.mobile || `+1000000000${index + 1}`;
+        const payload = {
+            name: seedUser.name || 'Admin',
+            mobile: fallbackMobile,
+            email: seedUserEmail,
+            password: (seedUser.password && String(seedUser.password).length >= 6) ? seedUser.password : 'ChangeMe123!',
+            designation: seedUser.designation || 'Founder',
+            remarks: seedUser.remarks || 'Seeded superuser account'
+        };
+        user = await User.create(payload);
+        logger.info(`👤 User inserted: ${user.email}`);
+    } else {
+        logger.info(`⚠️  Seed user already exists (${seedUserEmail}), skipping insert`);
+    }
+    return user;
+};
+
 const init = async () => {
     try {
         await connect();
 
-        // Seed user via Mongoose model (aligns with our schema)
-        const seedUserEmail = seedUserData.email || 'admin@example.com';
-        let user = await User.findOne({ email: seedUserEmail.toLowerCase() });
-        if (!user) {
-            const payload = {
-                name: seedUserData.name || 'Admin',
-                mobile: seedUserData.mobileNumber || seedUserData.mobile || '+10000000000',
-                email: seedUserEmail.toLowerCase(),
-                password: (seedUserData.password && String(seedUserData.password).length >= 6) ? seedUserData.password : 'ChangeMe123!',
-                designation: seedUserData.designation || 'Founder',
-                remarks: seedUserData.remarks || 'Seeded superuser account'
-            };
-            user = await User.create(payload);
-            logger.info(`👤 User inserted: ${user.email}`);
-        } else {
-            logger.info('⚠️  Seed user already exists, skipping');
+        // Seed users via Mongoose model (aligns with our schema)
+        const seededUsers = [];
+        for (let i = 0; i < seedUsers.length; i++) {
+            const userSeed = seedUsers[i];
+            const userDoc = await upsertUserAccount(userSeed, i);
+            if (userDoc) {
+                seededUsers.push({ seed: userSeed, user: userDoc });
+            }
         }
 
         // Seed roles
@@ -101,13 +126,14 @@ const init = async () => {
             logger.info('🔐 Permissions ensured');
         }
 
-        // Assign roles to user (defaults to superuser)
-        const userRoles =
-            Array.isArray(seedUserData.roles) && seedUserData.roles.length
-                ? seedUserData.roles
-                : ['superuser'];
+        // Assign roles to each user (defaults to superuser)
+        for (const entry of seededUsers) {
+            const { seed, user } = entry;
+            const userRoles =
+                Array.isArray(seed.roles) && seed.roles.length
+                    ? seed.roles
+                    : ['superuser'];
 
-        if (user) {
             for (const roleName of userRoles) {
                 const role = roleMap[roleName] || await Role.findOne({ rolename: roleName });
                 if (!role) {
@@ -120,15 +146,20 @@ const init = async () => {
         }
 
         // Generate a JWT for quick testing using app secrets
-        const jwtAuth = new JwtAuth({
-            JWT_SECRET: config.jwt.secret,
-            JWT_PL_SECRET: config.jwt.plSecret,
-            JWT_SALT: config.jwt.salt
-        });
-        const token = jwtAuth.generateToken(user);
-        if (token) {
-            logger.info('🪪 Test JWT (Bearer):');
-            logger.info(token);
+        if (seededUsers.length) {
+            const jwtAuth = new JwtAuth({
+                JWT_SECRET: config.jwt.secret,
+                JWT_PL_SECRET: config.jwt.plSecret,
+                JWT_SALT: config.jwt.salt
+            });
+
+            for (const { user } of seededUsers) {
+                const token = jwtAuth.generateToken(user);
+                if (token) {
+                    logger.info(`🪪 Test JWT (Bearer) for ${user.email}:`);
+                    logger.info(token);
+                }
+            }
         }
 
         await mongoose.connection.close();

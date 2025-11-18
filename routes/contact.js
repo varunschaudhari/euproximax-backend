@@ -33,6 +33,7 @@ const handleFileUpload = (req, res, next) => {
 
 router.post('/', handleFileUpload, contactValidation, handleValidationErrors, contactController.createContact);
 router.get('/', contactController.listContacts);
+router.get('/:id', contactController.getContactById);
 
 module.exports = router;
 

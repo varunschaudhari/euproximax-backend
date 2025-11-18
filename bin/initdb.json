@@ -1,22 +1,39 @@
 {
-	"users": {
-		"name": "Varun",
-		"username": "varun",
-		"mobileNumber": "9876543210",
-		"email": "varun@gmail.com",
-		"password": "varun123",
-		"designation": "Software Engineer",
-		"remarks": "Seeded superuser account for platform setup",
-		"roles": [
-			"superuser"
-		]
-	},
+	"users": [
+		{
+			"name": "Varun",
+			"username": "varun",
+			"mobileNumber": "9876543210",
+			"email": "varun@gmail.com",
+			"password": "Varun123",
+			"designation": "Software Engineer",
+			"remarks": "Seeded superuser account for platform setup",
+			"roles": [
+				"superuser"
+			]
+		},
+		{
+			"name": "Priya Singh",
+			"username": "priya.pm",
+			"mobileNumber": "+919876501234",
+			"email": "priya.pm@euproximax.com",
+			"password": "Project@123",
+			"designation": "Project Manager",
+			"remarks": "Seeded PM account with full platform access",
+			"roles": [
+				"project manager"
+			]
+		}
+	],
 	"roles": [
 		{
 			"rolename": "superuser"
 		},
 		{
 			"rolename": "admin"
+		},
+		{
+			"rolename": "project manager"
 		}
 	],
 	"permissions": [
@@ -61,6 +78,26 @@
 			"action": "DELETE"
 		},
 		{
+			"rolename": "superuser",
+			"type": "CONTACT",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONTACT",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONTACT",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONTACT",
+			"action": "DELETE"
+		},
+		{
 			"rolename": "admin",
 			"type": "USER",
 			"action": "READ"
@@ -69,6 +106,66 @@
 			"rolename": "admin",
 			"type": "ROLES",
 			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "USER",
+			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "USER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "USER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "USER",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "ROLES",
+			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "ROLES",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "ROLES",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "ROLES",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "CONTACT",
+			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "CONTACT",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "CONTACT",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "CONTACT",
+			"action": "DELETE"
 		}
 	]
 }

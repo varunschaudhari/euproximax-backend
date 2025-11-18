@@ -291,8 +291,33 @@ const listContacts = async (req, res, next) => {
   }
 };
 
+const getContactById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const contact = await ContactMessage.findById(id);
+    
+    if (!contact) {
+      return next(new AppError('Contact not found', 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Contact fetched successfully',
+      data: contact
+    });
+  } catch (error) {
+    logger.error('Get contact by ID error', {
+      error: error.message,
+      stack: error.stack,
+      contactId: req.params.id
+    });
+    next(error instanceof AppError ? error : new AppError('Unable to fetch contact', 500));
+  }
+};
+
 module.exports = {
   createContact,
-  listContacts
+  listContacts,
+  getContactById
 };
 
