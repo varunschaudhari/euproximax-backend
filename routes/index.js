@@ -6,6 +6,7 @@ const authRoutes = require('./auth');
 const userRoutes = require('./user');
 const aclRoutes = require('./acl');
 const contactRoutes = require('./contact');
+const projectRoutes = require('./project');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -56,6 +57,7 @@ const routes = (app) => {
     // Protected routes (require authentication)
     app.use('/api/v1/user', userRoutes);
     app.use('/api/v1/acl', aclRoutes);
+    app.use('/api/v1/project', projectRoutes);
 
     logger.debug('App routes setup complete.');
 };

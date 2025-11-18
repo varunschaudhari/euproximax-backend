@@ -303,8 +303,9 @@ const getContactById = async (req, res, next) => {
     const { id } = req.params;
     const contact = await ContactMessage.findById(id)
       .populate('assignedTo', 'name email designation')
-      .populate('scheduledCall.scheduledBy', 'name email');
-    
+      .populate('scheduledCall.scheduledBy', 'name email')
+      .populate('closedBy', 'name email');
+
     if (!contact) {
       return next(new AppError('Contact not found', 404));
     }
@@ -327,7 +328,7 @@ const getContactById = async (req, res, next) => {
 const updateContact = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, assignedTo, scheduledCall } = req.body;
+    const { status, assignedTo, scheduledCall, remarks } = req.body;
     const currentUser = req.user;
 
     const contact = await ContactMessage.findById(id);
@@ -341,6 +342,30 @@ const updateContact = async (req, res, next) => {
         return next(new AppError('Invalid status value', 400));
       }
       contact.status = status;
+
+      // Handle closing enquiry with remarks
+      if (status === 'Closed') {
+        contact.closedAt = new Date();
+        contact.closedBy = currentUser?._id || null;
+        if (remarks) {
+          contact.remarks = remarks.trim();
+        }
+      } else {
+        // Clear closed fields if reopening
+        contact.closedAt = null;
+        contact.closedBy = null;
+        contact.remarks = null;
+      }
+    }
+
+    // Prevent assigning/unassigning when status is Closed
+    if (assignedTo !== undefined && contact.status === 'Closed') {
+      return next(new AppError('Cannot modify Project Manager assignment for closed enquiries. Please reopen the enquiry first.', 400));
+    }
+
+    // Auto-update status to In-Progress when assigning a manager
+    if (assignedTo !== undefined && assignedTo && contact.status === 'New') {
+      contact.status = 'In-Progress';
     }
 
     if (assignedTo !== undefined) {
@@ -373,6 +398,9 @@ const updateContact = async (req, res, next) => {
     // Handle call scheduling
     if (scheduledCall !== undefined) {
       if (scheduledCall && scheduledCall.scheduledAt) {
+        if (contact.status === 'Closed') {
+          return next(new AppError('Cannot schedule calls for closed enquiries. Please reopen the enquiry first.', 400));
+        }
         if (!contact.assignedTo) {
           return next(new AppError('Please assign a Project Manager before scheduling a call', 400));
         }
@@ -598,6 +626,9 @@ contact@euproximax.com`;
     await contact.populate('assignedTo', 'name email designation');
     if (contact.scheduledCall?.scheduledBy) {
       await contact.populate('scheduledCall.scheduledBy', 'name email');
+    }
+    if (contact.closedBy) {
+      await contact.populate('closedBy', 'name email');
     }
 
     res.status(200).json({
