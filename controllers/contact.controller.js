@@ -301,7 +301,9 @@ const listContacts = async (req, res, next) => {
 const getContactById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const contact = await ContactMessage.findById(id).populate('assignedTo', 'name email designation');
+    const contact = await ContactMessage.findById(id)
+      .populate('assignedTo', 'name email designation')
+      .populate('scheduledCall.scheduledBy', 'name email');
     
     if (!contact) {
       return next(new AppError('Contact not found', 404));
@@ -325,7 +327,8 @@ const getContactById = async (req, res, next) => {
 const updateContact = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, assignedTo } = req.body;
+    const { status, assignedTo, scheduledCall } = req.body;
+    const currentUser = req.user;
 
     const contact = await ContactMessage.findById(id);
     if (!contact) {
@@ -367,8 +370,235 @@ const updateContact = async (req, res, next) => {
       }
     }
 
+    // Handle call scheduling
+    if (scheduledCall !== undefined) {
+      if (scheduledCall && scheduledCall.scheduledAt) {
+        if (!contact.assignedTo) {
+          return next(new AppError('Please assign a Project Manager before scheduling a call', 400));
+        }
+
+        const scheduledDate = new Date(scheduledCall.scheduledAt);
+        if (isNaN(scheduledDate.getTime())) {
+          return next(new AppError('Invalid scheduled date', 400));
+        }
+
+        if (scheduledDate < new Date()) {
+          return next(new AppError('Scheduled call date cannot be in the past', 400));
+        }
+
+        contact.scheduledCall = {
+          scheduledAt: scheduledDate,
+          callNotes: scheduledCall.callNotes?.trim() || '',
+          scheduledBy: currentUser?._id || null,
+          scheduledAtTime: scheduledCall.scheduledAtTime || scheduledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          meetingLink: scheduledCall.meetingLink?.trim() || null
+        };
+
+        // Send email notification to requestor
+        try {
+          const manager = await User.findById(contact.assignedTo).select('name email');
+          const scheduledByUser = currentUser ? await User.findById(currentUser._id).select('name email') : null;
+
+          const emailSubject = `Call Scheduled - ${contact.subject}`;
+          const formattedDate = scheduledDate.toLocaleDateString('en-IN', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+          const formattedTime = scheduledDate.toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          });
+
+          const emailText = `Dear ${contact.name},
+
+We're pleased to inform you that a call has been scheduled to discuss your enquiry.
+
+CALL DETAILS:
+• Date: ${formattedDate}
+• Time: ${formattedTime} IST
+• Project Manager: ${manager?.name || 'TBD'}
+${contact.scheduledCall.meetingLink ? `• Meeting Link: ${contact.scheduledCall.meetingLink}` : ''}
+${contact.scheduledCall.callNotes ? `• Notes: ${contact.scheduledCall.callNotes}` : ''}
+
+ENQUIRY REFERENCE:
+• Subject: ${contact.subject}
+• Enquiry ID: ${contact._id}
+
+We look forward to speaking with you. If you need to reschedule, please contact us at contact@euproximax.com.
+
+Best regards,
+EuProximaX Team
+contact@euproximax.com`;
+
+          const emailHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Scheduled</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f6f9;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07); overflow: hidden;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 0;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="padding: 35px 40px; text-align: center;">
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 15px;">
+                                            <tr>
+                                                <td style="width: 50px; height: 50px; background-color: rgba(255, 255, 255, 0.25); border-radius: 50%; text-align: center; vertical-align: middle; font-size: 28px; color: #ffffff; line-height: 50px;">📞</td>
+                                            </tr>
+                                        </table>
+                                        <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">Call Scheduled</h1>
+                                        <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.95); font-size: 15px; font-weight: 400;">EuProximaX Innovation Services</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Main Content -->
+                    <tr>
+                        <td style="padding: 30px 35px;">
+                            <p style="margin: 0 0 15px 0; color: #1a1a1a; font-size: 16px; line-height: 1.5;">Dear <strong style="color: #667eea;">${contact.name}</strong>,</p>
+                            
+                            <p style="margin: 0 0 25px 0; color: #4a5568; font-size: 15px; line-height: 1.6;">We're pleased to inform you that a call has been scheduled to discuss your enquiry.</p>
+                            
+                            <!-- Call Details Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%); border-radius: 8px; border-left: 4px solid #667eea; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h2 style="margin: 0 0 15px 0; color: #667eea; font-size: 16px; font-weight: 600;">📞 Call Details</h2>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 6px 0; border-bottom: 1px solid rgba(102, 126, 234, 0.1);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Date:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; font-weight: 600; margin-left: 8px;">${formattedDate}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0; border-bottom: 1px solid rgba(102, 126, 234, 0.1);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Time:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; font-weight: 600; margin-left: 8px;">${formattedTime} IST</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0; border-bottom: 1px solid rgba(102, 126, 234, 0.1);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Project Manager:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; font-weight: 600; margin-left: 8px;">${manager?.name || 'TBD'}</span>
+                                                </td>
+                                            </tr>
+                                            ${contact.scheduledCall.meetingLink ? `
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Meeting Link:</span>
+                                                    <a href="${contact.scheduledCall.meetingLink}" style="color: #667eea; font-size: 13px; font-weight: 600; margin-left: 8px; text-decoration: none; word-break: break-all;">${contact.scheduledCall.meetingLink}</a>
+                                                </td>
+                                            </tr>
+                                            ` : ''}
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            ${contact.scheduledCall.meetingLink ? `
+                            <!-- Meeting Link Button -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 20px 0;">
+                                <tr>
+                                    <td align="center" style="padding: 0 25px;">
+                                        <a href="${contact.scheduledCall.meetingLink}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">Join Meeting</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            ` : ''}
+                            
+                            ${contact.scheduledCall.callNotes ? `
+                            <!-- Notes Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc; border-radius: 8px; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 12px 0; color: #2d3748; font-size: 15px; font-weight: 600;">Notes</h3>
+                                        <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${contact.scheduledCall.callNotes.replace(/\n/g, '<br>')}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            ` : ''}
+                            
+                            <!-- Enquiry Reference -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc; border-radius: 8px; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 12px 0; color: #2d3748; font-size: 15px; font-weight: 600;">Enquiry Reference</h3>
+                                        <p style="margin: 0 0 6px 0; color: #4a5568; font-size: 14px;"><strong>Subject:</strong> ${contact.subject}</p>
+                                        <p style="margin: 0; color: #4a5568; font-size: 14px;"><strong>Enquiry ID:</strong> ${contact._id}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 0 0 20px 0; color: #4a5568; font-size: 15px; line-height: 1.6;">We look forward to speaking with you. If you need to reschedule, please contact us at <a href="mailto:contact@euproximax.com" style="color: #667eea; text-decoration: none; font-weight: 600;">contact@euproximax.com</a>.</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 25px 35px; text-align: center; border-top: 1px solid #e2e8f0;">
+                            <p style="margin: 0 0 8px 0; color: #2d3748; font-size: 14px; font-weight: 600;">Best regards,</p>
+                            <p style="margin: 0 0 6px 0; color: #4a5568; font-size: 14px; font-weight: 500;">EuProximaX Team</p>
+                            <p style="margin: 0;">
+                                <a href="mailto:contact@euproximax.com" style="color: #667eea; text-decoration: none; font-size: 13px; font-weight: 500;">contact@euproximax.com</a>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+
+          await sendMail({
+            to: contact.email,
+            subject: emailSubject,
+            text: emailText,
+            html: emailHtml
+          });
+
+          logger.info(`Call scheduling email sent successfully to ${contact.email} for enquiry: ${contact.subject}`);
+        } catch (mailError) {
+          logger.error('Call scheduling email failed', {
+            error: mailError.message,
+            email: contact.email,
+            contactId: contact._id
+          });
+          // Don't fail the request if email fails
+        }
+      } else {
+        // Clear scheduled call
+        contact.scheduledCall = {
+          scheduledAt: null,
+          callNotes: null,
+          scheduledBy: null,
+          scheduledAtTime: null,
+          meetingLink: null
+        };
+      }
+    }
+
     await contact.save();
     await contact.populate('assignedTo', 'name email designation');
+    if (contact.scheduledCall?.scheduledBy) {
+      await contact.populate('scheduledCall.scheduledBy', 'name email');
+    }
 
     res.status(200).json({
       success: true,

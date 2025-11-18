@@ -57,6 +57,31 @@ const contactMessageSchema = new mongoose.Schema(
             type: Date,
             default: null
         },
+        scheduledCall: {
+            scheduledAt: {
+                type: Date,
+                default: null
+            },
+            callNotes: {
+                type: String,
+                trim: true,
+                maxlength: 500
+            },
+            scheduledBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+                default: null
+            },
+            scheduledAtTime: {
+                type: String,
+                trim: true
+            },
+            meetingLink: {
+                type: String,
+                trim: true,
+                maxlength: 500
+            }
+        },
         meta: {
             type: Object,
             default: {}
