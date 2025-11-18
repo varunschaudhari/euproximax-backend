@@ -145,7 +145,7 @@ const getProjectById = async (req, res, next) => {
       .populate('filing.filedBy', 'name email')
       .populate('grant.grantedBy', 'name email')
       .populate('close.closedBy', 'name email');
-    
+
     if (!project) {
       return next(new AppError('Project not found', 404));
     }
@@ -198,10 +198,23 @@ const updateProject = async (req, res, next) => {
 
     // Update quote details
     if (quote) {
+      if (quote.invoiceNumber !== undefined) project.quote.invoiceNumber = quote.invoiceNumber?.trim() || null;
+      if (quote.clientName !== undefined) project.quote.clientName = quote.clientName?.trim() || null;
+      if (quote.title !== undefined) project.quote.title = quote.title?.trim() || null;
+      if (quote.serviceType !== undefined) project.quote.serviceType = quote.serviceType?.trim() || null;
+      if (quote.lineItems !== undefined && Array.isArray(quote.lineItems)) {
+        project.quote.lineItems = quote.lineItems.map(item => ({
+          description: item.description?.trim() || '',
+          quantity: item.quantity || 0,
+          unitPrice: item.unitPrice || 0,
+          currency: item.currency || 'INR',
+          finalCost: item.finalCost || (item.quantity || 0) * (item.unitPrice || 0)
+        }));
+      }
       if (quote.amount !== undefined) project.quote.amount = quote.amount;
       if (quote.currency) project.quote.currency = quote.currency;
       if (quote.description !== undefined) project.quote.description = quote.description?.trim() || null;
-      
+
       // Handle stage transitions
       if (currentStage === 'Internal Approval' && !project.quote.internalApprovalDate) {
         project.quote.internalApprovalDate = new Date();
@@ -242,7 +255,7 @@ const updateProject = async (req, res, next) => {
       if (onboarding.completedDate) project.onboarding.completedDate = new Date(onboarding.completedDate);
       if (onboarding.onboardingBy) project.onboarding.onboardingBy = onboarding.onboardingBy;
       if (onboarding.notes !== undefined) project.onboarding.notes = onboarding.notes?.trim() || null;
-      
+
       if (currentStage === 'Onboarding' && !project.onboarding.onboardingBy) {
         project.onboarding.onboardingBy = currentUser._id;
         if (!project.onboarding.startDate) {
@@ -258,7 +271,7 @@ const updateProject = async (req, res, next) => {
       if (drafting.completedDate) project.drafting.completedDate = new Date(drafting.completedDate);
       if (drafting.draftedBy) project.drafting.draftedBy = drafting.draftedBy;
       if (drafting.notes !== undefined) project.drafting.notes = drafting.notes?.trim() || null;
-      
+
       if (currentStage === 'Drafting' && !project.drafting.draftedBy) {
         project.drafting.draftedBy = currentUser._id;
         if (!project.drafting.startDate) {
@@ -274,7 +287,7 @@ const updateProject = async (req, res, next) => {
       if (filing.applicationNumber !== undefined) project.filing.applicationNumber = filing.applicationNumber?.trim() || null;
       if (filing.filedBy) project.filing.filedBy = filing.filedBy;
       if (filing.notes !== undefined) project.filing.notes = filing.notes?.trim() || null;
-      
+
       if (currentStage === 'Filing' && !project.filing.filedBy) {
         project.filing.filedBy = currentUser._id;
         if (!project.filing.filingDate) {
@@ -290,7 +303,7 @@ const updateProject = async (req, res, next) => {
       if (grant.grantNumber !== undefined) project.grant.grantNumber = grant.grantNumber?.trim() || null;
       if (grant.grantedBy) project.grant.grantedBy = grant.grantedBy;
       if (grant.notes !== undefined) project.grant.notes = grant.notes?.trim() || null;
-      
+
       if (currentStage === 'Grant' && !project.grant.grantedBy) {
         project.grant.grantedBy = currentUser._id;
         if (!project.grant.grantDate) {
@@ -305,7 +318,7 @@ const updateProject = async (req, res, next) => {
       if (close.closedDate) project.close.closedDate = new Date(close.closedDate);
       if (close.closedBy) project.close.closedBy = close.closedBy;
       if (close.remarks !== undefined) project.close.remarks = close.remarks?.trim() || null;
-      
+
       if (currentStage === 'Close' && !project.close.closedBy) {
         project.close.closedBy = currentUser._id;
         if (!project.close.closedDate) {
@@ -354,7 +367,7 @@ const deleteProject = async (req, res, next) => {
   try {
     const { id } = req.params;
     const project = await Project.findById(id);
-    
+
     if (!project) {
       return next(new AppError('Project not found', 404));
     }

@@ -50,6 +50,53 @@ const projectSchema = new mongoose.Schema(
         },
         // Quote details
         quote: {
+            invoiceNumber: {
+                type: String,
+                trim: true,
+                maxlength: 100
+            },
+            clientName: {
+                type: String,
+                trim: true,
+                maxlength: 100
+            },
+            title: {
+                type: String,
+                trim: true,
+                maxlength: 200
+            },
+            serviceType: {
+                type: String,
+                trim: true,
+                maxlength: 100
+            },
+            lineItems: [{
+                description: {
+                    type: String,
+                    trim: true,
+                    maxlength: 500
+                },
+                quantity: {
+                    type: Number,
+                    default: 0,
+                    min: 0
+                },
+                unitPrice: {
+                    type: Number,
+                    default: 0,
+                    min: 0
+                },
+                currency: {
+                    type: String,
+                    default: 'INR',
+                    enum: ['INR', 'USD', 'EUR']
+                },
+                finalCost: {
+                    type: Number,
+                    default: 0,
+                    min: 0
+                }
+            }],
             amount: {
                 type: Number,
                 default: null
