@@ -1,4 +1,7 @@
 const ContactMessage = require('../models/ContactMessage');
+const User = require('../models/User');
+const Role = require('../models/Role');
+const UserRole = require('../models/UserRole');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 const { sendMail } = require('../utils/mailer');
@@ -267,7 +270,11 @@ const listContacts = async (req, res, next) => {
     }
 
     const [messages, total] = await Promise.all([
-      ContactMessage.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      ContactMessage.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('assignedTo', 'name email designation'),
       ContactMessage.countDocuments(filter)
     ]);
 
@@ -294,7 +301,7 @@ const listContacts = async (req, res, next) => {
 const getContactById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const contact = await ContactMessage.findById(id);
+    const contact = await ContactMessage.findById(id).populate('assignedTo', 'name email designation');
     
     if (!contact) {
       return next(new AppError('Contact not found', 404));
@@ -315,9 +322,73 @@ const getContactById = async (req, res, next) => {
   }
 };
 
+const updateContact = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, assignedTo } = req.body;
+
+    const contact = await ContactMessage.findById(id);
+    if (!contact) {
+      return next(new AppError('Contact not found', 404));
+    }
+
+    if (status) {
+      const allowedStatuses = ['New', 'In-Progress', 'Closed'];
+      if (!allowedStatuses.includes(status)) {
+        return next(new AppError('Invalid status value', 400));
+      }
+      contact.status = status;
+    }
+
+    if (assignedTo !== undefined) {
+      if (assignedTo) {
+        const manager = await User.findById(assignedTo);
+        if (!manager || manager.isDeleted) {
+          return next(new AppError('Project Manager not found', 404));
+        }
+
+        const pmRole = await Role.findOne({ rolename: 'project manager' });
+        if (!pmRole) {
+          return next(new AppError('Project Manager role not configured', 500));
+        }
+
+        const hasRole = await UserRole.findOne({ userId: manager._id, roleId: pmRole._id });
+        if (!hasRole) {
+          return next(new AppError('Selected user is not a Project Manager', 400));
+        }
+
+        contact.assignedTo = manager._id;
+        contact.assignedToName = manager.name;
+        contact.assignedAt = new Date();
+      } else {
+        contact.assignedTo = null;
+        contact.assignedToName = null;
+        contact.assignedAt = null;
+      }
+    }
+
+    await contact.save();
+    await contact.populate('assignedTo', 'name email designation');
+
+    res.status(200).json({
+      success: true,
+      message: 'Contact updated successfully',
+      data: contact
+    });
+  } catch (error) {
+    logger.error('Update contact error', {
+      error: error.message,
+      stack: error.stack,
+      contactId: req.params.id
+    });
+    next(error instanceof AppError ? error : new AppError('Unable to update contact', 500));
+  }
+};
+
 module.exports = {
   createContact,
   listContacts,
-  getContactById
+  getContactById,
+  updateContact
 };
 

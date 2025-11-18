@@ -44,6 +44,19 @@ const contactMessageSchema = new mongoose.Schema(
             enum: ['New', 'In-Progress', 'Closed'],
             default: 'New'
         },
+        assignedTo: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            default: null
+        },
+        assignedToName: {
+            type: String,
+            trim: true
+        },
+        assignedAt: {
+            type: Date,
+            default: null
+        },
         meta: {
             type: Object,
             default: {}

@@ -204,7 +204,21 @@ const getUsers = async (req, res, next) => {
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
         const limit = Math.min(parseInt(req.query.limit, 10) || 10, 100);
         const searchTerm = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+        const roleParam = typeof req.query.role === 'string' ? req.query.role.trim() : '';
         const skip = (page - 1) * limit;
+
+        const emptyResponse = () =>
+            res.status(200).json({
+                success: true,
+                message: 'Users fetched successfully',
+                data: {
+                    users: [],
+                    page,
+                    limit,
+                    total: 0,
+                    totalPages: 1
+                }
+            });
 
         const searchFilter = searchTerm
             ? {
@@ -215,9 +229,41 @@ const getUsers = async (req, res, next) => {
                 ]
             }
             : {};
-        const filter = Object.keys(searchFilter).length
-            ? { $and: [searchFilter, ACTIVE_USER_CONDITION] }
-            : ACTIVE_USER_CONDITION;
+
+        let roleFilterCondition = null;
+        if (roleParam) {
+            const role = await Role.findOne({
+                rolename: new RegExp(`^${escapeRegex(roleParam)}$`, 'i')
+            });
+
+            if (!role) {
+                return emptyResponse();
+            }
+
+            const roleAssignments = await UserRole.find({ roleId: role._id }, 'userId');
+            const userIds = roleAssignments.map((entry) => entry.userId);
+
+            if (userIds.length === 0) {
+                return emptyResponse();
+            }
+
+            roleFilterCondition = { _id: { $in: userIds } };
+        }
+
+        const filters = [ACTIVE_USER_CONDITION];
+        if (Object.keys(searchFilter).length) {
+            filters.push(searchFilter);
+        }
+        if (roleFilterCondition) {
+            filters.push(roleFilterCondition);
+        }
+
+        const filter =
+            filters.length > 1
+                ? {
+                    $and: filters
+                }
+                : filters[0];
 
         const [users, total] = await Promise.all([
             User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),

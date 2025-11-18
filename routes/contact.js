@@ -15,6 +15,11 @@ const contactValidation = [
     body('message').trim().isLength({ min: 10, max: 2000 }).withMessage('Message should be at least 10 characters')
 ];
 
+const updateValidation = [
+    body('status').optional().isIn(['New', 'In-Progress', 'Closed']).withMessage('Invalid status provided'),
+    body('assignedTo').optional({ checkFalsy: true }).isMongoId().withMessage('Invalid project manager id')
+];
+
 // File upload error handler
 const handleFileUpload = (req, res, next) => {
     upload.single('file')(req, res, (err) => {
@@ -34,6 +39,7 @@ const handleFileUpload = (req, res, next) => {
 router.post('/', handleFileUpload, contactValidation, handleValidationErrors, contactController.createContact);
 router.get('/', contactController.listContacts);
 router.get('/:id', contactController.getContactById);
+router.put('/:id', updateValidation, handleValidationErrors, contactController.updateContact);
 
 module.exports = router;
 
