@@ -208,6 +208,7 @@ const updateProject = async (req, res, next) => {
     }
     const stageJustMovedToInternal = previousStage !== 'Internal Approval' && project.currentStage === 'Internal Approval';
     const leavingInternalStage = previousStage === 'Internal Approval' && project.currentStage !== 'Internal Approval';
+    const revertedFromInternalApproval = previousStage === 'Internal Approval' && project.currentStage === 'Draft Quote';
 
     // Update quote details
     if (quote) {
@@ -295,6 +296,12 @@ const updateProject = async (req, res, next) => {
 
       project.quote.internalApprovalDate = new Date();
       project.quote.internalApprovedBy = currentUser._id;
+    }
+
+    // If the project was sent back to Draft Quote from Internal Approval, require a fresh approval
+    if (revertedFromInternalApproval) {
+      project.quote.internalApprovalDate = null;
+      project.quote.internalApprovedBy = null;
     }
 
     if (stageJustMovedToInternal) {

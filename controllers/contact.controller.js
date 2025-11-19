@@ -324,13 +324,19 @@ const getContactById = async (req, res, next) => {
         status: project.status,
         currentStage: project.currentStage,
         createdAt: project.createdAt,
-        assignedApprover: project.quote?.assignedApprover?._id || project.quote?.assignedApprover || null,
+        assignedApprover: project.quote?.assignedApprover
+          ? (typeof project.quote.assignedApprover === 'object'
+            ? project.quote.assignedApprover._id
+            : project.quote.assignedApprover)
+          : null,
         assignedApproverName:
-          typeof project.quote?.assignedApprover === 'object'
-            ? project.quote.assignedApprover.name
-            : project.quote?.assignedApproverName || null,
+          project.quote?.assignedApprover
+            ? (typeof project.quote.assignedApprover === 'object'
+              ? project.quote.assignedApprover.name
+              : project.quote.assignedApproverName || null)
+            : null,
         assignedApproverEmail:
-          typeof project.quote?.assignedApprover === 'object'
+          project.quote?.assignedApprover && typeof project.quote.assignedApprover === 'object'
             ? project.quote.assignedApprover.email
             : null,
         assignedApproverAt: project.quote?.assignedApproverAt || null,
@@ -394,10 +400,11 @@ const updateContact = async (req, res, next) => {
       return next(new AppError('Cannot modify Project Manager assignment for closed enquiries. Please reopen the enquiry first.', 400));
     }
 
-    // Auto-update status to In-Progress when assigning a manager
-    if (assignedTo !== undefined && assignedTo && contact.status === 'New') {
-      contact.status = 'In-Progress';
-    }
+    const assignmentChangesToInProgress =
+      assignedTo !== undefined &&
+      assignedTo &&
+      contact.status !== 'Closed' &&
+      contact.status !== 'In-Progress';
 
     if (assignedTo !== undefined) {
       if (assignedTo) {
@@ -419,6 +426,9 @@ const updateContact = async (req, res, next) => {
         contact.assignedTo = manager._id;
         contact.assignedToName = manager.name;
         contact.assignedAt = new Date();
+        if (assignmentChangesToInProgress) {
+          contact.status = 'In-Progress';
+        }
       } else {
         contact.assignedTo = null;
         contact.assignedToName = null;
