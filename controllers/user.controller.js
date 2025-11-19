@@ -176,12 +176,23 @@ const getMe = async (req, res, next) => {
             return next(new AppError('User not found', 404));
         }
 
+        // Get user roles
+        const UserRole = require('../models/UserRole');
+        const Role = require('../models/Role');
+        const userRoles = await UserRole.find({ userId: user._id }).lean();
+        const roleIds = userRoles.map(ur => ur.roleId);
+        const roles = await Role.find({ _id: { $in: roleIds } }).select('rolename').lean();
+        const roleNames = roles.map(r => r.rolename);
+
         logger.info(`Profile retrieved - ID: ${user._id}, Email: ${user.email}`);
 
         res.status(200).json({
             success: true,
             data: {
-                user: user.toJSON()
+                user: {
+                    ...user.toJSON(),
+                    roles: roleNames
+                }
             }
         });
     } catch (error) {

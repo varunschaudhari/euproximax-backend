@@ -1,6 +1,8 @@
 const Project = require('../models/Project');
 const ContactMessage = require('../models/ContactMessage');
 const User = require('../models/User');
+const UserRole = require('../models/UserRole');
+const Role = require('../models/Role');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 
@@ -138,6 +140,7 @@ const getProjectById = async (req, res, next) => {
       .populate('enquiryId')
       .populate('createdBy', 'name email')
       .populate('quote.draftBy', 'name email')
+      .populate('quote.assignedApprover', 'name email')
       .populate('quote.internalApprovedBy', 'name email')
       .populate('quote.sentBy', 'name email')
       .populate('onboarding.onboardingBy', 'name email')
@@ -215,8 +218,51 @@ const updateProject = async (req, res, next) => {
       if (quote.currency) project.quote.currency = quote.currency;
       if (quote.description !== undefined) project.quote.description = quote.description?.trim() || null;
 
+      // Handle assigning approver for Internal Approval
+      if (quote.assignedApprover !== undefined && currentStage === 'Internal Approval') {
+        // Only allow assignment if not already approved
+        if (project.quote.internalApprovalDate) {
+          return next(new AppError('Cannot change approver. Quote already approved.', 400));
+        }
+
+        // Validate that the assigned user has Higher Management role
+        if (quote.assignedApprover) {
+          const assignedUser = await User.findById(quote.assignedApprover);
+          if (!assignedUser || assignedUser.isDeleted) {
+            return next(new AppError('Assigned approver not found', 404));
+          }
+
+          const assignedUserRoles = await UserRole.find({ userId: assignedUser._id }).lean();
+          const assignedRoleIds = assignedUserRoles.map(ur => ur.roleId);
+          const assignedRoles = await Role.find({ _id: { $in: assignedRoleIds } }).lean();
+          const assignedRoleNames = assignedRoles.map(r => r.rolename);
+
+          if (!assignedRoleNames.includes('Higher Management')) {
+            return next(new AppError('Assigned user must have Higher Management role', 400));
+          }
+
+          project.quote.assignedApprover = assignedUser._id;
+          project.quote.assignedApproverName = assignedUser.name;
+          project.quote.assignedApproverAt = new Date();
+        } else {
+          // Unassign approver
+          project.quote.assignedApprover = null;
+          project.quote.assignedApproverName = null;
+          project.quote.assignedApproverAt = null;
+        }
+      }
+
       // Handle stage transitions
       if (currentStage === 'Internal Approval' && !project.quote.internalApprovalDate) {
+        // Check if the current user is the assigned approver
+        if (!project.quote.assignedApprover) {
+          return next(new AppError('Please assign a Higher Management approver before approving', 400));
+        }
+
+        if (project.quote.assignedApprover.toString() !== currentUser._id.toString()) {
+          return next(new AppError('Only the assigned Higher Management approver can approve this quote', 403));
+        }
+        
         project.quote.internalApprovalDate = new Date();
         project.quote.internalApprovedBy = currentUser._id;
       }

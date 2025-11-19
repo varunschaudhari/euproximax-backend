@@ -26,6 +26,7 @@ const updateProjectValidation = [
     body('quote.lineItems.*.quantity').optional({ nullable: true, checkFalsy: true }).isNumeric().withMessage('Quantity must be a number'),
     body('quote.lineItems.*.unitPrice').optional({ nullable: true, checkFalsy: true }).isNumeric().withMessage('Unit price must be a number'),
     body('quote.lineItems.*.currency').optional().isIn(['INR', 'USD', 'EUR']).withMessage('Invalid currency'),
+    body('quote.assignedApprover').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Assigned approver must be a valid user ID'),
     body('quote.amount').optional({ nullable: true, checkFalsy: true }).isNumeric().withMessage('Quote amount must be a number'),
     body('quote.description').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 2000 }).withMessage('Quote description is too long'),
     body('payment.amount').optional({ nullable: true, checkFalsy: true }).isNumeric().withMessage('Payment amount must be a number'),

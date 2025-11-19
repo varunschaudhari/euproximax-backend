@@ -120,6 +120,19 @@ const projectSchema = new mongoose.Schema(
                 ref: 'User',
                 default: null
             },
+            assignedApprover: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+                default: null
+            },
+            assignedApproverName: {
+                type: String,
+                trim: true
+            },
+            assignedApproverAt: {
+                type: Date,
+                default: null
+            },
             internalApprovalDate: {
                 type: Date,
                 default: null
