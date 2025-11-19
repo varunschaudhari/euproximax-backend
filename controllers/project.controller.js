@@ -5,6 +5,9 @@ const UserRole = require('../models/UserRole');
 const Role = require('../models/Role');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
+const { sendMail } = require('../utils/mailer');
+
+const APPROVAL_PORTAL_URL = process.env.ADMIN_PORTAL_URL || 'https://app.euproximax.com';
 
 const createProject = async (req, res, next) => {
   try {
@@ -179,6 +182,11 @@ const updateProject = async (req, res, next) => {
       return next(new AppError('Project not found', 404));
     }
 
+    const previousStage = project.currentStage;
+    const previousApproverId = project.quote?.assignedApprover ? project.quote.assignedApprover.toString() : null;
+    let notifyApprover = false;
+    let assignedApproverInfo = null;
+
     if (projectName) {
       project.projectName = projectName.trim();
     }
@@ -198,6 +206,8 @@ const updateProject = async (req, res, next) => {
       }
       project.currentStage = currentStage;
     }
+    const stageJustMovedToInternal = previousStage !== 'Internal Approval' && project.currentStage === 'Internal Approval';
+    const leavingInternalStage = previousStage === 'Internal Approval' && project.currentStage !== 'Internal Approval';
 
     // Update quote details
     if (quote) {
@@ -219,7 +229,7 @@ const updateProject = async (req, res, next) => {
       if (quote.description !== undefined) project.quote.description = quote.description?.trim() || null;
 
       // Handle assigning approver for Internal Approval
-      if (quote.assignedApprover !== undefined && currentStage === 'Internal Approval') {
+      if (quote.assignedApprover !== undefined) {
         // Only allow assignment if not already approved
         if (project.quote.internalApprovalDate) {
           return next(new AppError('Cannot change approver. Quote already approved.', 400));
@@ -244,28 +254,23 @@ const updateProject = async (req, res, next) => {
           project.quote.assignedApprover = assignedUser._id;
           project.quote.assignedApproverName = assignedUser.name;
           project.quote.assignedApproverAt = new Date();
+          if (previousApproverId !== assignedUser._id.toString()) {
+            notifyApprover = project.currentStage === 'Internal Approval';
+            assignedApproverInfo = {
+              name: assignedUser.name,
+              email: assignedUser.email
+            };
+          }
         } else {
           // Unassign approver
           project.quote.assignedApprover = null;
           project.quote.assignedApproverName = null;
           project.quote.assignedApproverAt = null;
+          notifyApprover = false;
+          assignedApproverInfo = null;
         }
       }
 
-      // Handle stage transitions
-      if (currentStage === 'Internal Approval' && !project.quote.internalApprovalDate) {
-        // Check if the current user is the assigned approver
-        if (!project.quote.assignedApprover) {
-          return next(new AppError('Please assign a Higher Management approver before approving', 400));
-        }
-
-        if (project.quote.assignedApprover.toString() !== currentUser._id.toString()) {
-          return next(new AppError('Only the assigned Higher Management approver can approve this quote', 403));
-        }
-        
-        project.quote.internalApprovalDate = new Date();
-        project.quote.internalApprovedBy = currentUser._id;
-      }
       if (currentStage === 'Quote Sent' && !project.quote.sentDate) {
         project.quote.sentDate = new Date();
         project.quote.sentBy = currentUser._id;
@@ -275,6 +280,26 @@ const updateProject = async (req, res, next) => {
         if (quote.clientApproved && !project.quote.clientApprovalDate) {
           project.quote.clientApprovalDate = new Date();
         }
+      }
+    }
+
+    // Handle stage transitions for Internal Approval approvals (when leaving the stage)
+    if (leavingInternalStage && !project.quote.internalApprovalDate) {
+      if (!project.quote.assignedApprover) {
+        return next(new AppError('Higher Management approver not assigned', 400));
+      }
+
+      if (project.quote.assignedApprover.toString() !== currentUser._id.toString()) {
+        return next(new AppError('Only the assigned Higher Management approver can approve this quote', 403));
+      }
+
+      project.quote.internalApprovalDate = new Date();
+      project.quote.internalApprovedBy = currentUser._id;
+    }
+
+    if (stageJustMovedToInternal) {
+      if (!project.quote.assignedApprover) {
+        return next(new AppError('Please assign a Higher Management approver before requesting Internal Approval', 400));
       }
     }
 
@@ -393,6 +418,55 @@ const updateProject = async (req, res, next) => {
     await project.populate('filing.filedBy', 'name email');
     await project.populate('grant.grantedBy', 'name email');
     await project.populate('close.closedBy', 'name email');
+
+    if (!notifyApprover && stageJustMovedToInternal && project.quote.assignedApprover) {
+      try {
+        const assignedUser = await User.findById(project.quote.assignedApprover).lean();
+        if (assignedUser && !assignedUser.isDeleted) {
+          assignedApproverInfo = {
+            name: assignedUser.name,
+            email: assignedUser.email
+          };
+          notifyApprover = Boolean(assignedApproverInfo.email);
+        }
+      } catch (err) {
+        logger.error('Failed to load assigned approver for notification', {
+          error: err.message,
+          projectId: project._id
+        });
+      }
+    }
+
+    if (notifyApprover && assignedApproverInfo?.email) {
+      const portalBaseUrl = APPROVAL_PORTAL_URL.endsWith('/')
+        ? APPROVAL_PORTAL_URL.slice(0, -1)
+        : APPROVAL_PORTAL_URL;
+      const approvalLink = `${portalBaseUrl}/admin/projects/${project._id}`;
+      try {
+        await sendMail({
+          to: assignedApproverInfo.email,
+          subject: `Project Approval Needed: ${project.projectName}`,
+          text: `Hi ${assignedApproverInfo.name || 'there'},\n\nYou have been assigned to approve the quote for the project "${project.projectName}".\n\nPlease review the project details at: ${approvalLink}\n\nThank you,\nEuProximaX`,
+          html: `
+            <p>Hi <strong>${assignedApproverInfo.name || 'there'}</strong>,</p>
+            <p>You have been assigned to approve the quote for the project <strong>${project.projectName}</strong>.</p>
+            <p>
+              <a href="${approvalLink}" style="display:inline-block;padding:10px 16px;border-radius:8px;background-color:#4f46e5;color:#ffffff;text-decoration:none;font-weight:600;">
+                Review Project →
+              </a>
+            </p>
+            <p>Please log in to the admin portal to complete the approval.</p>
+            <p style="margin-top:24px;">Regards,<br/>EuProximaX Team</p>
+          `
+        });
+      } catch (mailError) {
+        logger.error('Project approval notification failed', {
+          error: mailError.message,
+          projectId: project._id,
+          email: assignedApproverInfo.email
+        });
+      }
+    }
 
     res.status(200).json({
       success: true,
