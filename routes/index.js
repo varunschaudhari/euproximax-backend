@@ -7,6 +7,7 @@ const userRoutes = require('./user');
 const aclRoutes = require('./acl');
 const contactRoutes = require('./contact');
 const projectRoutes = require('./project');
+const blogRoutes = require('./blog');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -24,11 +25,17 @@ const authRouteFilter = (req, res, next) => {
         { path: '/api/v1/auth/login' },
         { path: '/api/health' },
         { path: '/api/v1/health' },
-        { path: '/api/v1/contact', methods: ['POST'] }
+        { path: '/api/v1/contact', methods: ['POST'] },
+        { path: '/api/v1/blog', methods: ['GET'] },
+        { path: '/api/v1/blog/submissions', methods: ['POST'] }
     ];
 
     const isPublicRoute = publicRoutes.some(route => {
-        const matchPath = req.path === route.path || req.path === route.path + '/';
+        const normalizedRoutePath = route.path.endsWith('/') ? route.path.slice(0, -1) : route.path;
+        const matchPath =
+            req.path === normalizedRoutePath ||
+            req.path === normalizedRoutePath + '/' ||
+            req.path.startsWith(normalizedRoutePath + '/');
         if (!matchPath) return false;
         if (!route.methods) return true;
         return route.methods.includes(req.method);
@@ -58,6 +65,7 @@ const routes = (app) => {
     app.use('/api/v1/user', userRoutes);
     app.use('/api/v1/acl', aclRoutes);
     app.use('/api/v1/project', projectRoutes);
+    app.use('/api/v1/blog', blogRoutes);
 
     logger.debug('App routes setup complete.');
 };
