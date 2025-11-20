@@ -9,6 +9,7 @@ const contactRoutes = require('./contact');
 const projectRoutes = require('./project');
 const blogRoutes = require('./blog');
 const videoRoutes = require('./video');
+const eventRoutes = require('./event');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -29,7 +30,8 @@ const authRouteFilter = (req, res, next) => {
         { path: '/api/v1/contact', methods: ['POST'] },
         { path: '/api/v1/blog', methods: ['GET'] },
         { path: '/api/v1/blog/submissions', methods: ['POST'] },
-        { path: '/api/v1/video', methods: ['GET'] }
+        { path: '/api/v1/video', methods: ['GET'] },
+        { path: '/api/v1/event', methods: ['GET'] }
     ];
 
     const isPublicRoute = publicRoutes.some(route => {
@@ -69,6 +71,7 @@ const routes = (app) => {
     app.use('/api/v1/project', projectRoutes);
     app.use('/api/v1/blog', blogRoutes);
     app.use('/api/v1/video', videoRoutes);
+    app.use('/api/v1/event', eventRoutes);
 
     logger.debug('App routes setup complete.');
 };
