@@ -50,3 +50,7 @@ tmp/
 temp/
 *.tmp
 
+# Upload directories
+uploads/
+uploads/**/*
+
