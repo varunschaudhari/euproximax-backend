@@ -51,6 +51,6 @@ temp/
 *.tmp
 
 # Upload directories
-uploads/
-uploads/**/*
+# uploads/
+# uploads/**/*
 
