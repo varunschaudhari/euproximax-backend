@@ -1,45 +1,101 @@
-// In-memory user storage (replace with database in production)
-// For production, use MongoDB, PostgreSQL, MySQL, etc.
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-let users = [];
+/**
+ * User Schema
+ * Fields: id (auto-generated), name, mobile, email, password (hashed with bcrypt), designation, Remarks, createdAt, lastLogin, updatedAt
+ */
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Name is required'],
+      trim: true,
+      minlength: [2, 'Name must be at least 2 characters'],
+      maxlength: [50, 'Name cannot exceed 50 characters']
+    },
+    mobile: {
+      type: String,
+      required: [true, 'Mobile number is required'],
+      unique: true,
+      trim: true,
+      match: [/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/, 'Please provide a valid mobile number']
+    },
+    email: {
+      type: String,
+      required: [true, 'Email is required'],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address']
+    },
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      minlength: [6, 'Password must be at least 6 characters'],
+      select: false // Don't include password in queries by default
+    },
+    lastLogin: {
+      type: Date,
+      default: null
+    },
+    logoutNum: {
+      type: Number,
+      default: 0
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+    designation: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Designation cannot exceed 100 characters']
+    },
+    remarks: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Remarks cannot exceed 500 characters']
+    }
+  },
+  {
+    timestamps: true, // Automatically adds createdAt and updatedAt
+    toJSON: {
+      transform: function (doc, ret) {
+        // Remove password from JSON output
+        delete ret.password;
+        return ret;
+      }
+    }
+  }
+);
 
-class User {
-  constructor({ id, name, email, password }) {
-    this.id = id;
-    this.name = name;
-    this.email = email;
-    this.password = password; // This will be hashed
-    this.createdAt = new Date();
-    this.updatedAt = new Date();
+/**
+ * Hash password before saving
+ */
+userSchema.pre('save', async function (next) {
+  // Only hash the password if it has been modified (or is new)
+  if (!this.isModified('password')) {
+    return next();
   }
 
-  // Remove password from user object before sending
-  toJSON() {
-    const { password, ...userWithoutPassword } = this;
-    return userWithoutPassword;
+  try {
+    // Hash password with bcrypt
+    const saltRounds = 10;
+    this.password = await bcrypt.hash(this.password, saltRounds);
+    next();
+  } catch (error) {
+    next(error);
   }
+});
 
-  static create(userData) {
-    const user = new User({
-      id: users.length + 1,
-      ...userData
-    });
-    users.push(user);
-    return user;
-  }
+/**
+ * Compare password method
+ */
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
-  static findByEmail(email) {
-    return users.find(user => user.email === email);
-  }
-
-  static findById(id) {
-    return users.find(user => user.id === parseInt(id));
-  }
-
-  static getAll() {
-    return users.map(user => user.toJSON());
-  }
-}
+const User = mongoose.model('User', userSchema);
 
 module.exports = User;
-

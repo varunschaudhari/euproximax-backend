@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const authController = require('../controllers/auth.controller');
-const authenticateToken = require('../middleware/auth');
+const userController = require('../controllers/user.controller');
 const handleValidationErrors = require('../middleware/validate');
 
 // Validation rules for registration
@@ -13,6 +12,12 @@ const registerValidation = [
     .withMessage('Name must be between 2 and 50 characters')
     .matches(/^[a-zA-Z\s]+$/)
     .withMessage('Name can only contain letters and spaces'),
+  body('mobile')
+    .trim()
+    .notEmpty()
+    .withMessage('Mobile number is required')
+    .matches(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/)
+    .withMessage('Please provide a valid mobile number'),
   body('email')
     .trim()
     .isEmail()
@@ -22,7 +27,17 @@ const registerValidation = [
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number')
+    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+  body('designation')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Designation cannot exceed 100 characters'),
+  body('remarks')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Remarks cannot exceed 500 characters')
 ];
 
 // Validation rules for login
@@ -42,7 +57,7 @@ router.post(
   '/register',
   registerValidation,
   handleValidationErrors,
-  authController.register
+  userController.register
 );
 
 // POST /api/auth/login - Login user
@@ -50,14 +65,7 @@ router.post(
   '/login',
   loginValidation,
   handleValidationErrors,
-  authController.login
-);
-
-// GET /api/auth/me - Get logged-in user (protected route)
-router.get(
-  '/me',
-  authenticateToken,
-  authController.getMe
+  userController.login
 );
 
 module.exports = router;

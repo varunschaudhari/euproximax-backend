@@ -1,0 +1,278 @@
+{
+	"users": [
+		{
+			"name": "Varun",
+			"username": "varun",
+			"mobileNumber": "9876543210",
+			"email": "varun@gmail.com",
+			"password": "Varun123",
+			"designation": "Software Engineer",
+			"remarks": "Seeded superuser account for platform setup",
+			"roles": [
+				"superuser"
+			]
+		},
+		{
+			"name": "Priya Singh",
+			"username": "priya.pm",
+			"mobileNumber": "+919876501234",
+			"email": "priya.pm@euproximax.com",
+			"password": "Project@123",
+			"designation": "Project Manager",
+			"remarks": "Seeded PM account with full platform access",
+			"roles": [
+				"project manager"
+			]
+		},
+		{
+			"name": "Dr. Jyoti Chaudhari",
+			"username": "jyoti.chaudhari",
+			"mobileNumber": "+919876501235",
+			"email": "jyoti.chaudhari@euproximax.com",
+			"password": "HigherMgmt@123",
+			"designation": "Higher Management",
+			"remarks": "Seeded Higher Management account",
+			"roles": [
+				"Higher Management"
+			]
+		},
+		{
+			"name": "Dr. Praveen Shinde",
+			"username": "praveen.shinde",
+			"mobileNumber": "+919876501236",
+			"email": "praveen.shinde@euproximax.com",
+			"password": "HigherMgmt@123",
+			"designation": "Higher Management",
+			"remarks": "Seeded Higher Management account",
+			"roles": [
+				"Higher Management"
+			]
+		}
+	],
+	"roles": [
+		{
+			"rolename": "superuser"
+		},
+		{
+			"rolename": "admin"
+		},
+		{
+			"rolename": "project manager"
+		},
+		{
+			"rolename": "Higher Management"
+		}
+	],
+	"permissions": [
+		{
+			"rolename": "superuser",
+			"type": "USER",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "USER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "USER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "USER",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "ROLES",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "ROLES",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "ROLES",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "ROLES",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONTACT",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONTACT",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONTACT",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONTACT",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "admin",
+			"type": "USER",
+			"action": "READ"
+		},
+		{
+			"rolename": "admin",
+			"type": "ROLES",
+			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "USER",
+			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "USER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "USER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "USER",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "ROLES",
+			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "ROLES",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "ROLES",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "ROLES",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "CONTACT",
+			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "CONTACT",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "CONTACT",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "CONTACT",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "USER",
+			"action": "READ"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "USER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "USER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "USER",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "ROLES",
+			"action": "READ"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "ROLES",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "ROLES",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "ROLES",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "CONTACT",
+			"action": "READ"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "CONTACT",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "CONTACT",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "CONTACT",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "PROJECT",
+			"action": "READ"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "PROJECT",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "PROJECT",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "PROJECT",
+			"action": "DELETE"
+		}
+	]
+}
