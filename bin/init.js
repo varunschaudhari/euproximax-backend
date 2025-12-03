@@ -87,7 +87,14 @@ const upsertUserAccount = async (seedUser, index = 0) => {
         user = await User.create(payload);
         logger.info(`👤 User inserted: ${user.email}`);
     } else {
-        logger.info(`⚠️  Seed user already exists (${seedUserEmail}), skipping insert`);
+        // Update password if provided in seed data (useful for resetting passwords)
+        if (seedUser.password && String(seedUser.password).length >= 6) {
+            user.password = seedUser.password;
+            await user.save();
+            logger.info(`🔄 Password updated for existing user: ${seedUserEmail}`);
+        } else {
+            logger.info(`⚠️  Seed user already exists (${seedUserEmail}), skipping insert`);
+        }
     }
     return user;
 };

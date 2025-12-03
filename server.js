@@ -50,10 +50,38 @@ app.use(helmet());
 app.use(bodyParser.json({ limit: '20mb' }));
 app.use(bodyParser.urlencoded({ limit: '20mb', extended: true }));
 
-// CORS - only in non-production
-if (config.server.nodeEnv !== 'production') {
-  app.use(cors());
-}
+// CORS Configuration - Support both website and admin frontends
+const allowedOrigins = [
+  'http://localhost:5173', // Website (default Vite port)
+  'http://localhost:5174', // Admin (custom Vite port)
+  process.env.WEBSITE_URL,
+  process.env.ADMIN_URL,
+].filter(Boolean); // Remove undefined values
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // In development, allow localhost origins
+    if (config.server.nodeEnv !== 'production') {
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        return callback(null, true);
+      }
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 
 // Initialize Passport middleware
 app.use(passport.initialize());
