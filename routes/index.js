@@ -11,6 +11,7 @@ const blogRoutes = require('./blog');
 const videoRoutes = require('./video');
 const eventRoutes = require('./event');
 const partnerRoutes = require('./partner');
+const dashboardRoutes = require('./dashboard');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -75,6 +76,7 @@ const routes = (app) => {
     app.use('/api/v1/video', videoRoutes);
     app.use('/api/v1/event', eventRoutes);
     app.use('/api/v1/partner', partnerRoutes);
+    app.use('/api/v1/dashboard', dashboardRoutes);
 
     logger.debug('App routes setup complete.');
 };
