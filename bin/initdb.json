@@ -13,11 +13,11 @@
 			]
 		},
 		{
-			"name": "Priya Singh",
-			"username": "priya.pm",
+			"name": "Manish Baviskar",
+			"username": "manish.baviskar",
 			"mobileNumber": "+919876501234",
-			"email": "priya.pm@euproximax.com",
-			"password": "Project@123",
+			"email": "manish.baviskar@euproximax.com",
+			"password": "Manish123",
 			"designation": "Project Manager",
 			"remarks": "Seeded PM account with full platform access",
 			"roles": [
