@@ -365,6 +365,13 @@ const submitBlogProposal = async (req, res, next) => {
     const excerpt = cleanSummary.length > 500 ? `${cleanSummary.slice(0, 497)}...` : cleanSummary;
     const readTimeMinutes = estimateReadTime(cleanSummary);
 
+    // Handle uploaded image
+    let coverImagePath = null;
+    if (req.file) {
+      coverImagePath = `/uploads/blog/${req.file.filename}`;
+      logger.info(`Cover image uploaded for blog submission: ${req.file.originalname} -> ${coverImagePath}`);
+    }
+
     const blog = await BlogPost.create({
       title: cleanTitle,
       slug: uniqueSlug,
@@ -378,6 +385,7 @@ const submitBlogProposal = async (req, res, next) => {
       readTimeMinutes,
       status: 'Draft',
       isFeatured: false,
+      coverImage: coverImagePath,
       submittedByName: cleanName,
       submittedByEmail: cleanEmail,
       submissionReference: reference?.trim(),

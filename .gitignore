@@ -52,5 +52,5 @@ temp/
 
 # Upload directories
 # uploads/
-# uploads/**/*
+uploads/**/*
 

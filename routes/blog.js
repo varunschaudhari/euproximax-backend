@@ -1,8 +1,10 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
+const multer = require('multer');
 const blogController = require('../controllers/blog.controller');
 const handleValidationErrors = require('../middleware/validate');
 const blogUpload = require('../middleware/blogUpload');
+const { AppError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -107,8 +109,25 @@ router.post(
     blogController.uploadHeroImage
 );
 
+// File upload error handler for blog submissions
+const handleBlogImageUpload = (req, res, next) => {
+    blogUpload.single('coverImage')(req, res, (err) => {
+        if (err) {
+            if (err instanceof multer.MulterError) {
+                if (err.code === 'LIMIT_FILE_SIZE') {
+                    return next(new AppError('Image size exceeds 5MB limit', 400));
+                }
+                return next(new AppError('Image upload error: ' + err.message, 400));
+            }
+            return next(new AppError(err.message || 'Image upload failed', 400));
+        }
+        next();
+    });
+};
+
 router.post(
     '/submissions',
+    handleBlogImageUpload,
     [
         body('name').trim().isLength({ min: 2, max: 120 }).withMessage('Name must be between 2 and 120 characters'),
         body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
