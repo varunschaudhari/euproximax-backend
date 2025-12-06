@@ -1,0 +1,148 @@
+{
+  "partners": [
+    {
+      "name": "Tanaya Chaudhari",
+      "location": "INDIA",
+      "role": "Administrative Assistant – EuProximaX Innovation Services",
+      "email": "tanaya@euproximax.com",
+      "phone": null,
+      "bio": "Tanaya Chaudhari is the Administrative Assistant at EuProximaX Innovation Services. She provides vital support in managing daily operations, coordinating with stakeholders, and ensuring smooth execution of administrative tasks. Her responsibilities include handling documentation, assisting with regulatory and tax-related activities, and supporting company leadership in internal communications and logistics. Tanaya plays an essential role in maintaining the operational backbone of the organization.",
+      "expertise": ["Administrative Management", "Documentation", "Regulatory Compliance", "Tax Activities", "Internal Communications", "Logistics Coordination"],
+      "image": "/tanaya-chaudhari.jpg",
+      "status": "Active",
+      "order": 1
+    },
+    {
+      "name": "Dr. Jyoti Chaudhari",
+      "location": "INDIA",
+      "role": "Strategic Advisor & Founder – EuProximaX Innovation Services",
+      "email": "jyoti@euproximax.com",
+      "phone": null,
+      "bio": "Dr. Jyoti Adhar Chaudhari is the Founder and Strategic Advisor of EuProximaX Innovation Services, where she leads initiatives that connect education, research, and entrepreneurship to accelerate idea-to-impact innovation. A distinguished academic and visionary leader, she has spent over a decade mentoring students, educators, and professionals in fields related to institutional growth, innovation policy, and creative problem-solving. Her leadership philosophy emphasizes empowering individuals to transform learning into practical innovation through collaboration and structured guidance. Under her direction, EuProximaX has evolved into a leading platform supporting patent registration, prototype development, research collaboration, and academic–industry partnerships, serving as a bridge between creativity and commercialization.\n\nDr. Chaudhari has conceptualized and launched pioneering programs such as Patent Writing Retreats, Research Focus Groups, and Innovation & Career Development Workshops, designed to cultivate a culture of intellectual property awareness and entrepreneurial thinking among educators, researchers, and young innovators.\n\nShe is widely recognized for her commitment to integrating educational excellence with innovation-driven growth. Her strategic mentorship promotes a mindset where knowledge creation, intellectual property protection, and societal contribution coexist as core values of progress.\n\nHer guiding principle—\"Your Idea is Your Property™\"—reflects EuProximaX's mission to empower every innovator to protect and elevate their intellectual contributions. Through her leadership, Dr. Chaudhari continues to inspire multidisciplinary collaboration, inclusivity in innovation, and the transformation of visionary concepts into tangible, real-world impact.",
+      "expertise": ["Strategic Planning", "Innovation Management", "IP Strategy", "Leadership", "Business Development", "Educational Excellence", "Research Collaboration", "Academic-Industry Partnerships", "Entrepreneurship", "Mentorship"],
+      "image": "/jyoti-chaudhari.jpg",
+      "status": "Active",
+      "order": 2
+    },
+    {
+      "name": "Prerana Chaudhari",
+      "location": "INDIA",
+      "role": "Project Manager (South Asia & India)– EuProximaX Innovation Services",
+      "email": "prerana@euproximax.com",
+      "phone": null,
+      "bio": "Prerana Chaudhari serves as the Project Manager & Coordinator at EuProximaX Innovation Services. She is responsible for managing project timelines, documentation, and communication across multiple innovation and client engagements. With a strong focus on organization and collaboration, she ensures seamless coordination between internal teams, clients, vendors, and external partners. Her role supports the successful execution of projects from concept to prototype, contributing to the company's mission of empowering innovators and startups.",
+      "expertise": ["Project Management", "Regional Operations", "Client Coordination", "Timeline Management", "Quality Assurance", "Documentation", "Vendor Management", "Team Collaboration"],
+      "image": "/prerana-chaudhari.png",
+      "status": "Active",
+      "order": 3
+    },
+    {
+      "name": "Pravin Shinde",
+      "location": "USA & INDIA",
+      "role": "Director of Innovation Services – EuProximaX Innovation Services",
+      "email": "pravin@euproximax.com",
+      "phone": null,
+      "bio": "Mr. Pravin Shinde brings over 10 years of experience in the pharmaceutical industry, research, and technology innovation. As Director of Innovation Services & Technical Expert at EuProximaX Innovation Services, he leads technical planning and execution for product development and prototyping initiatives. His expertise bridges research and practical implementation, supporting innovators and startups in developing viable, validated, and scalable solutions. He plays a key role in guiding teams through technology-driven innovation and transformation.",
+      "expertise": ["Innovation Services", "Strategic Leadership", "Cross-border Operations", "Client Success", "International Business", "Pharmaceutical Industry", "Research & Development", "Technology Innovation", "Product Development", "Prototyping", "Technical Planning"],
+      "image": "/pravin-shinde.jpg",
+      "status": "Active",
+      "order": 4
+    },
+    {
+      "name": "Dr. Sandeep Sonawane",
+      "location": "INDIA",
+      "role": "Scientific & Academic Collaboration",
+      "email": "sandeep.sonawane@euproximax.com",
+      "phone": null,
+      "bio": "Dr. Sandeep Sonawane is an External Associate at EuProximaX Innovation Services, supporting scientific innovation and academic collaboration. With a strong background in pharmaceutical education and research, he contributes to project ideation, knowledge exchange, and the development of healthcare-focused innovations. He actively engages in mentoring, scientific advising, and bridging academia with applied innovation to empower students, researchers, and startup teams.",
+      "expertise": ["Scientific Research", "Academic Partnerships", "Research Collaboration", "Knowledge Transfer", "Innovation Research", "Pharmaceutical Education", "Healthcare Innovation", "Mentoring", "Scientific Advising", "Project Ideation"],
+      "image": "/sandeep-sonwane.jpg",
+      "status": "Active",
+      "order": 5
+    },
+    {
+      "name": "Umesh Patil",
+      "location": "INDIA",
+      "role": "Industrial Professional – External Associate",
+      "email": "umesh.patil@euproximax.com",
+      "phone": null,
+      "bio": "Umesh Patil brings extensive industrial experience to support client projects and manufacturing initiatives. He provides technical expertise in industrial engineering and manufacturing processes.",
+      "expertise": ["Industrial Engineering", "Manufacturing", "Process Optimization", "Technical Consulting", "Production Management"],
+      "image": "/umesh.jpg",
+      "status": "Active",
+      "order": 6
+    },
+    {
+      "name": "Dhananjay Patil",
+      "location": "INDIA",
+      "role": "Industrial Professional – External Associate",
+      "email": "dhananjay.patil@euproximax.com",
+      "phone": null,
+      "bio": "Dhananjay Patil provides industrial expertise and technical support for various innovation projects. He specializes in industrial design and product development, helping clients bring their ideas to market.",
+      "expertise": ["Industrial Design", "Technical Consulting", "Product Development", "Manufacturing Support", "Design Engineering"],
+      "image": "/dhananjay.jpg",
+      "status": "Active",
+      "order": 7
+    },
+    {
+      "name": "Dr. Prakash Wankhedkar",
+      "location": "INDIA",
+      "role": "Academic & Research Associate– External Associate EuProximaX Innovation Services",
+      "email": "prakash.wankhedkar@euproximax.com",
+      "phone": null,
+      "bio": "Dr. Prakash Wankhedkar contributes academic and research expertise to support innovation and development projects. He brings rigorous research methodology and academic rigor to our innovation processes.",
+      "expertise": ["Academic Research", "Research Methodology", "Intellectual Property", "Research Strategy", "Academic Collaboration"],
+      "image": "/prakash-wankhedkar.jpg",
+      "status": "Active",
+      "order": 8
+    },
+    {
+      "name": "Harshika Suryawanshi",
+      "location": "INDIA",
+      "role": "Digital Development & AI/ML Lead – External Associate",
+      "email": "harshika@euproximax.com",
+      "phone": null,
+      "bio": "Harshika Suryawanshi leads Digital Development, AI/ML Integration, and Software Innovation at EuProximaX Innovation Services. She specializes in artificial intelligence, machine learning, and full-stack software development, driving the digital backbone of EuProximaX's innovation ecosystem.\n\nHer expertise lies in designing and implementing intelligent digital solutions, data-driven platforms, and AI-enabled prototypes that support patentable innovations across domains such as MedTech, CleanTech, and PharmaTech. Harshika plays a key role in transforming conceptual research into functional, scalable, and user-ready applications—bridging scientific innovation with real-world technology deployment.",
+      "expertise": ["AI/ML Applications", "Software & Web Development", "Prototype Design", "Data Analytics", "Digital Transformation", "Machine Learning", "Full-Stack Development", "Intelligent Digital Solutions", "Data-Driven Platforms"],
+      "image": null,
+      "status": "Active",
+      "order": 9
+    },
+    {
+      "name": "Hemant Suryawanshi",
+      "location": "USA",
+      "role": "Business Development (USA, Europe, and Asia) & Innovation Lead- External Associate",
+      "email": "hemant@euproximax.com",
+      "phone": null,
+      "bio": "Hemant Suryawanshi serves as the Business Development and Innovation Lead at EuProximaX Innovation Services, where he drives strategic collaborations, partnership growth, and commercialization of innovative projects. With over 17 years of professional experience in project management and industrial operations, he brings a strong blend of technical understanding and business acumen to the innovation ecosystem.\n\nAt EuProximaX, Hemant focuses on expanding innovation networks, supporting patent-driven ventures, and facilitating prototype-to-market transitions. His leadership bridges creative research with viable business models, enabling inventors, professionals, and startups to scale their ideas into impactful, real-world solutions.",
+      "expertise": ["Business Development", "Innovation Management", "Strategic Partnerships", "Project Leadership", "Commercialization of Patents & Prototypes", "Global Expansion", "Market Development", "International Relations", "Industrial Operations"],
+      "image": null,
+      "status": "Active",
+      "order": 10
+    },
+    {
+      "name": "Shubham Wagh",
+      "location": "USA",
+      "role": "Global Innovation (USA, UK, Canada & India) & Client Partnerships Lead – EuProximaX Innovation Services",
+      "email": "shubham@euproximax.com",
+      "phone": null,
+      "bio": "Shubham Wagh leads Global Innovation and Client Partnerships at EuProximaX Innovation Services, overseeing patent innovation and prototype development projects across the USA, UK, Canada, and India. With a strong foundation in pharmaceutical engineering, process validation, and technology transfer, he transforms early-stage ideas into patentable and commercially viable prototypes.\n\nDrawing from his experience across biopharmaceutical and medical device industries in the USA, UK, Canada, and Asia, Shubham integrates technical expertise with strategic project management to deliver innovation that meets both regulatory and commercial standards. At EuProximaX, he plays a pivotal role in aligning inventors, researchers, and industrial partners to develop protectable, scalable, and market-ready technologies.\n\nEducation: M.S. Mechanical Engineering – University of Bridgeport, USA",
+      "expertise": ["Patent & Prototype Development", "Global Innovation Management", "Client & Partner Relations", "Process Validation", "Technology Integration", "Pharmaceutical Engineering", "Technology Transfer", "Regulatory Compliance", "Strategic Project Management"],
+      "image": "/shubham.jpg",
+      "status": "Active",
+      "order": 11
+    },
+    {
+      "name": "Sandeep Narayan Patil",
+      "location": "UK",
+      "role": "Scientific Advisor – External Collaboration, EuProximaX Innovation Services",
+      "email": "sandeep.patil@euproximax.com",
+      "phone": null,
+      "bio": "Sandeep Narayan Patil provides scientific advisory services and facilitates external collaborations from the UK. He brings international scientific expertise and helps connect global research with innovation opportunities.",
+      "expertise": ["Scientific Advisory", "International Collaboration", "Research Strategy", "Scientific Consulting", "Global Research"],
+      "image": "/sandeep-patil.jpg",
+      "status": "Active",
+      "order": 12
+    }
+  ]
+}

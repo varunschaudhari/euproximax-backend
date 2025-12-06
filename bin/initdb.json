@@ -273,6 +273,86 @@
 			"rolename": "Higher Management",
 			"type": "PROJECT",
 			"action": "DELETE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "PARTNER",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "PARTNER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "PARTNER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "PARTNER",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "admin",
+			"type": "PARTNER",
+			"action": "READ"
+		},
+		{
+			"rolename": "admin",
+			"type": "PARTNER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "admin",
+			"type": "PARTNER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "admin",
+			"type": "PARTNER",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "PARTNER",
+			"action": "READ"
+		},
+		{
+			"rolename": "project manager",
+			"type": "PARTNER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "PARTNER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "project manager",
+			"type": "PARTNER",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "PARTNER",
+			"action": "READ"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "PARTNER",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "PARTNER",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "Higher Management",
+			"type": "PARTNER",
+			"action": "DELETE"
 		}
 	]
 }
