@@ -28,7 +28,14 @@ const handleFileUpload = (req, res, next) => {
                 if (err.code === 'LIMIT_FILE_SIZE') {
                     return next(new AppError('File size exceeds 10MB limit', 400));
                 }
+                if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+                    return next(new AppError('Unexpected file field. Please use "file" as the field name.', 400));
+                }
                 return next(new AppError('File upload error: ' + err.message, 400));
+            }
+            // Handle file filter errors
+            if (err.message && err.message.includes('File type')) {
+                return next(new AppError(err.message, 400));
             }
             return next(new AppError(err.message || 'File upload failed', 400));
         }
