@@ -38,7 +38,19 @@ const normalizeSubject = (subject) => {
 
 const createContact = async (req, res, next) => {
   try {
+    // Log request details for debugging
+    logger.info('Contact form submission received', {
+      hasFile: !!req.file,
+      bodyKeys: Object.keys(req.body || {}),
+      contentType: req.headers['content-type']
+    });
+
     const { name, email, phone, subject, message } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !subject || !message) {
+      return next(new AppError('Missing required fields: name, email, subject, and message are required', 400));
+    }
 
     // Normalize subject to proper format
     const normalizedSubject = normalizeSubject(subject);
@@ -49,7 +61,7 @@ const createContact = async (req, res, next) => {
     if (req.file) {
       filePath = `/uploads/contact/${req.file.filename}`;
       fileName = req.file.originalname;
-      logger.info(`File uploaded for contact: ${fileName} -> ${filePath}`);
+      logger.info(`File uploaded for contact: ${fileName} -> ${filePath} (${req.file.size} bytes)`);
     }
 
     const contact = await ContactMessage.create({
