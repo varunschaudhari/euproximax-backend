@@ -24,6 +24,11 @@ const jwtMiddleware = require('../middleware/auth');
  * These routes will bypass JWT middleware
  */
 const authRouteFilter = (req, res, next) => {
+    // Always allow OPTIONS requests (CORS preflight)
+    if (req.method === 'OPTIONS') {
+        return next();
+    }
+
     const publicRoutes = [
         { path: '/api/v1/auth/register' },
         { path: '/api/v1/auth/login' },

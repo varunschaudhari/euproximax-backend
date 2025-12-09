@@ -54,6 +54,9 @@ app.use(bodyParser.urlencoded({ limit: '20mb', extended: true }));
 const allowedOrigins = [
   'http://localhost:5173', // Website (default Vite port)
   'http://localhost:5174', // Admin (custom Vite port)
+  'https://euproximax.com',
+  'https://www.euproximax.com',
+  'https://admin.euproximax.com',
   process.env.WEBSITE_URL,
   process.env.ADMIN_URL,
 ].filter(Boolean); // Remove undefined values
@@ -74,11 +77,17 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      // Log the rejected origin for debugging
+      logger.warn(`CORS: Origin not allowed: ${origin}`);
+      // Return proper CORS error instead of throwing
+      callback(null, false);
     }
   },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
 app.use(cors(corsOptions));

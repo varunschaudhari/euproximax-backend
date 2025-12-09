@@ -45,10 +45,25 @@ const createContact = async (req, res, next) => {
       contentType: req.headers['content-type']
     });
 
+    // Ensure req.body exists
+    if (!req.body) {
+      logger.error('Contact form submission: req.body is undefined', {
+        contentType: req.headers['content-type'],
+        method: req.method
+      });
+      return next(new AppError('Invalid request format. Please ensure all fields are provided.', 400));
+    }
+
     const { name, email, phone, subject, message } = req.body;
 
     // Validate required fields
     if (!name || !email || !subject || !message) {
+      logger.warn('Contact form submission: Missing required fields', {
+        hasName: !!name,
+        hasEmail: !!email,
+        hasSubject: !!subject,
+        hasMessage: !!message
+      });
       return next(new AppError('Missing required fields: name, email, subject, and message are required', 400));
     }
 
