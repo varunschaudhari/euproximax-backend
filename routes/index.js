@@ -12,6 +12,7 @@ const videoRoutes = require('./video');
 const eventRoutes = require('./event');
 const partnerRoutes = require('./partner');
 const dashboardRoutes = require('./dashboard');
+const chatbotRoutes = require('./chatbot');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -29,6 +30,13 @@ const authRouteFilter = (req, res, next) => {
         return next();
     }
 
+    // Check if this is a chatbot public route (not admin)
+    const isChatbotPublicRoute = req.path.startsWith('/api/v1/chatbot/') && 
+                                 !req.path.startsWith('/api/v1/chatbot/admin/') &&
+                                 (req.path === '/api/v1/chatbot/conversation' ||
+                                  req.path.startsWith('/api/v1/chatbot/conversation/') ||
+                                  (req.path === '/api/v1/chatbot/message' && req.method === 'POST'));
+
     const publicRoutes = [
         { path: '/api/v1/auth/register' },
         { path: '/api/v1/auth/login' },
@@ -42,7 +50,7 @@ const authRouteFilter = (req, res, next) => {
         { path: '/api/v1/partner', methods: ['GET'] }
     ];
 
-    const isPublicRoute = publicRoutes.some(route => {
+    const isPublicRoute = isChatbotPublicRoute || publicRoutes.some(route => {
         const normalizedRoutePath = route.path.endsWith('/') ? route.path.slice(0, -1) : route.path;
         const matchPath =
             req.path === normalizedRoutePath ||
@@ -72,6 +80,7 @@ const routes = (app) => {
     // Public routes (no authentication required)
     app.use('/api/v1/auth', authRoutes);
     app.use('/api/v1/contact', contactRoutes);
+    app.use('/api/v1/chatbot', chatbotRoutes);
 
     // Protected routes (require authentication)
     app.use('/api/v1/user', userRoutes);
