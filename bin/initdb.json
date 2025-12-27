@@ -353,6 +353,46 @@
 			"rolename": "Higher Management",
 			"type": "PARTNER",
 			"action": "DELETE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CHATBOT",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CHATBOT",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CHATBOT",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CHATBOT",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "admin",
+			"type": "CHATBOT",
+			"action": "READ"
+		},
+		{
+			"rolename": "admin",
+			"type": "CHATBOT",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "admin",
+			"type": "CHATBOT",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "admin",
+			"type": "CHATBOT",
+			"action": "DELETE"
 		}
 	]
 }
