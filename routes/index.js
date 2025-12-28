@@ -13,6 +13,7 @@ const eventRoutes = require('./event');
 const partnerRoutes = require('./partner');
 const dashboardRoutes = require('./dashboard');
 const chatbotRoutes = require('./chatbot');
+const consultationRoutes = require('./consultation');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -47,7 +48,10 @@ const authRouteFilter = (req, res, next) => {
         { path: '/api/v1/blog/submissions', methods: ['POST'] },
         { path: '/api/v1/video', methods: ['GET'] },
         { path: '/api/v1/event', methods: ['GET'] },
-        { path: '/api/v1/partner', methods: ['GET'] }
+        { path: '/api/v1/partner', methods: ['GET'] },
+        { path: '/api/v1/consultation/slots', methods: ['GET'] },
+        { path: '/api/v1/consultation/book', methods: ['POST'] },
+        { path: '/api/v1/consultation/bookings', methods: ['GET'] }
     ];
 
     const isPublicRoute = isChatbotPublicRoute || publicRoutes.some(route => {
@@ -81,6 +85,7 @@ const routes = (app) => {
     app.use('/api/v1/auth', authRoutes);
     app.use('/api/v1/contact', contactRoutes);
     app.use('/api/v1/chatbot', chatbotRoutes);
+    app.use('/api/v1/consultation', consultationRoutes);
 
     // Protected routes (require authentication)
     app.use('/api/v1/user', userRoutes);

@@ -393,6 +393,46 @@
 			"rolename": "admin",
 			"type": "CHATBOT",
 			"action": "DELETE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONSULTATION",
+			"action": "READ"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONSULTATION",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONSULTATION",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "superuser",
+			"type": "CONSULTATION",
+			"action": "DELETE"
+		},
+		{
+			"rolename": "admin",
+			"type": "CONSULTATION",
+			"action": "READ"
+		},
+		{
+			"rolename": "admin",
+			"type": "CONSULTATION",
+			"action": "CREATE"
+		},
+		{
+			"rolename": "admin",
+			"type": "CONSULTATION",
+			"action": "UPDATE"
+		},
+		{
+			"rolename": "admin",
+			"type": "CONSULTATION",
+			"action": "DELETE"
 		}
 	]
 }
