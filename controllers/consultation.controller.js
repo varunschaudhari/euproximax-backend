@@ -2,6 +2,11 @@ const ConsultationSlot = require('../models/ConsultationSlot');
 const ConsultationBooking = require('../models/ConsultationBooking');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
+const { sendMail } = require('../utils/mailer');
+const config = require('../utils/config');
+const User = require('../models/User');
+const Role = require('../models/Role');
+const UserRole = require('../models/UserRole');
 
 /**
  * Calculate end time from start time and duration
@@ -134,6 +139,464 @@ const getAvailableSlots = async (req, res, next) => {
 };
 
 /**
+ * Send booking receipt email to user
+ */
+const sendBookingReceiptEmail = async (booking) => {
+  try {
+    const slot = booking.slotId;
+    const slotDate = new Date(slot.date);
+    const formattedDate = slotDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const formatTime = (timeString) => {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const hour = hours % 12 || 12;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      return `${hour}:${String(minutes).padStart(2, '0')} ${ampm}`;
+    };
+
+    const bookingId = booking._id.toString();
+    const websiteUrl = process.env.WEBSITE_URL || 'http://localhost:5173';
+    const cancelUrl = `${websiteUrl}/consultation/confirmation/${bookingId}`;
+
+    const emailSubject = `Consultation Booking Confirmed - Booking ID: ${bookingId.slice(-8)}`;
+
+    const emailText = `
+Booking Confirmation - EuProximaX Consultation
+
+Dear ${booking.userName},
+
+Thank you for booking a consultation with EuProximaX!
+
+Booking Details:
+- Booking ID: ${bookingId.slice(-8)}
+- Date: ${formattedDate}
+- Time: ${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}
+- Duration: ${slot.duration} minutes
+
+Your Details:
+- Name: ${booking.userName}
+- Email: ${booking.userEmail}
+- Phone: ${booking.userPhone}
+${booking.message ? `- Message: ${booking.message}` : ''}
+
+Next Steps:
+Our team will review your booking and confirm the consultation. You will receive a confirmation email once your booking is approved.
+
+If you need to cancel this booking, please visit: ${cancelUrl}
+
+For any questions, please contact us at contact@euproximax.com
+
+Best regards,
+EuProximaX Team
+    `.trim();
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Consultation Booking Confirmed</title>
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td {font-family: Arial, sans-serif !important;}
+    </style>
+    <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f6f9;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07); overflow: hidden;">
+                    
+                    <!-- Header with Gradient -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 0;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="padding: 35px 40px; text-align: center;">
+                                        <!-- Success Icon -->
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 15px;">
+                                            <tr>
+                                                <td style="width: 50px; height: 50px; background-color: rgba(255, 255, 255, 0.25); border-radius: 50%; text-align: center; vertical-align: middle; font-size: 28px; color: #ffffff; line-height: 50px;">✓</td>
+                                            </tr>
+                                        </table>
+                                        <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">Booking Confirmed!</h1>
+                                        <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.95); font-size: 15px; font-weight: 400;">EuProximaX Consultation Service</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Main Content -->
+                    <tr>
+                        <td style="padding: 30px 35px;">
+                            <p style="margin: 0 0 15px 0; color: #1a1a1a; font-size: 16px; line-height: 1.5;">Dear <strong style="color: #667eea;">${booking.userName}</strong>,</p>
+                            
+                            <p style="margin: 0 0 25px 0; color: #4a5568; font-size: 15px; line-height: 1.6;">Thank you for booking a consultation with EuProximaX! Your booking has been received and is pending confirmation.</p>
+                            
+                            <!-- Booking Summary Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%); border-radius: 8px; border-left: 4px solid #667eea; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h2 style="margin: 0 0 15px 0; color: #667eea; font-size: 16px; font-weight: 600;">📋 Booking Summary</h2>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 8px 0; border-bottom: 1px solid rgba(102, 126, 234, 0.1);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Booking ID:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; font-weight: 600; margin-left: 8px; font-family: monospace;">${bookingId.slice(-8)}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; border-bottom: 1px solid rgba(102, 126, 234, 0.1);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Date:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${formattedDate}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; border-bottom: 1px solid rgba(102, 126, 234, 0.1);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Time:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0;">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Duration:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${slot.duration} minutes</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- User Details Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc; border-radius: 8px; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 15px; font-weight: 600;">👤 Your Details</h3>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 6px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.05);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Name:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${booking.userName}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.05);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Email:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${booking.userEmail}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Phone:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${booking.userPhone}</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            ${booking.message ? `
+                            <!-- Message Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc; border-radius: 8px; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 12px 0; color: #2d3748; font-size: 15px; font-weight: 600;">💬 Your Message</h3>
+                                        <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${booking.message.replace(/\n/g, '<br>')}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            ` : ''}
+                            
+                            <!-- Next Steps Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 8px; border-left: 4px solid #22c55e; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 10px 0; color: #166534; font-size: 15px; font-weight: 600;">
+                                            <span style="display: inline-block; width: 24px; height: 24px; background-color: #22c55e; border-radius: 50%; margin-right: 8px; text-align: center; line-height: 24px; color: white; font-size: 14px; vertical-align: middle;">✓</span>
+                                            Next Steps
+                                        </h3>
+                                        <p style="margin: 0 0 12px 0; color: #166534; font-size: 14px; line-height: 1.6;">Our team will review your booking and confirm the consultation. You will receive a confirmation email once your booking is approved.</p>
+                                        <p style="margin: 0; color: #166534; font-size: 14px; line-height: 1.6;">For any questions, please contact us at <a href="mailto:contact@euproximax.com" style="color: #22c55e; text-decoration: none; font-weight: 600;">contact@euproximax.com</a></p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Cancel Booking Button -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 20px 0;">
+                                <tr>
+                                    <td align="center" style="padding: 0 25px;">
+                                        <a href="${cancelUrl}" style="display: inline-block; background-color: #fee2e2; color: #991b1b; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; text-align: center; border: 1px solid #fecaca;">Cancel Booking</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 25px 35px; text-align: center; border-top: 1px solid #e2e8f0;">
+                            <p style="margin: 0 0 8px 0; color: #2d3748; font-size: 14px; font-weight: 600;">Best regards,</p>
+                            <p style="margin: 0 0 6px 0; color: #4a5568; font-size: 14px; font-weight: 500;">EuProximaX Team</p>
+                            <p style="margin: 0 0 15px 0;">
+                                <a href="mailto:contact@euproximax.com" style="color: #667eea; text-decoration: none; font-size: 13px; font-weight: 500;">contact@euproximax.com</a>
+                            </p>
+                            <p style="margin: 15px 0 0 0; padding-top: 15px; border-top: 1px solid #e2e8f0; color: #a0aec0; font-size: 11px; line-height: 1.4;">This is an automated confirmation email. Booking ID: ${bookingId.slice(-8)}</p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+
+    await sendMail({
+      to: booking.userEmail,
+      subject: emailSubject,
+      text: emailText,
+      html: emailHtml
+    });
+
+    logger.info(`Booking receipt email sent to user: ${booking.userEmail}`);
+  } catch (error) {
+    logger.error('Failed to send booking receipt email', { error: error.message, stack: error.stack });
+    // Don't throw error - email failure shouldn't block booking creation
+  }
+};
+
+/**
+ * Send admin notification email
+ */
+const sendAdminNotificationEmail = async (booking, adminEmails) => {
+  try {
+    if (!adminEmails || adminEmails.length === 0) {
+      return;
+    }
+
+    const slot = booking.slotId;
+    const slotDate = new Date(slot.date);
+    const formattedDate = slotDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const formatTime = (timeString) => {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const hour = hours % 12 || 12;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      return `${hour}:${String(minutes).padStart(2, '0')} ${ampm}`;
+    };
+
+    const bookingId = booking._id.toString();
+    const adminPortalUrl = config.adminPortal.url;
+    const bookingUrl = `${adminPortalUrl}/admin/consultation-bookings/${bookingId}`;
+
+    const emailSubject = `New Consultation Booking - ${booking.userName}`;
+
+    const emailText = `
+New Consultation Booking Received
+
+A new consultation booking has been received:
+
+Booking Details:
+- Booking ID: ${bookingId.slice(-8)}
+- Date: ${formattedDate}
+- Time: ${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}
+- Duration: ${slot.duration} minutes
+
+User Details:
+- Name: ${booking.userName}
+- Email: ${booking.userEmail}
+- Phone: ${booking.userPhone}
+${booking.message ? `- Message: ${booking.message}` : ''}
+
+View and manage this booking: ${bookingUrl}
+
+Best regards,
+EuProximaX System
+    `.trim();
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>New Consultation Booking</title>
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td {font-family: Arial, sans-serif !important;}
+    </style>
+    <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f6f9;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07); overflow: hidden;">
+                    
+                    <!-- Header with Gradient -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 0;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="padding: 35px 40px; text-align: center;">
+                                        <!-- Notification Icon -->
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 15px;">
+                                            <tr>
+                                                <td style="width: 50px; height: 50px; background-color: rgba(255, 255, 255, 0.25); border-radius: 50%; text-align: center; vertical-align: middle; font-size: 28px; color: #ffffff; line-height: 50px;">🔔</td>
+                                            </tr>
+                                        </table>
+                                        <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">New Booking Received</h1>
+                                        <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.95); font-size: 15px; font-weight: 400;">EuProximaX Consultation Service</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Main Content -->
+                    <tr>
+                        <td style="padding: 30px 35px;">
+                            <p style="margin: 0 0 25px 0; color: #4a5568; font-size: 15px; line-height: 1.6;">A new consultation booking has been received and requires your attention.</p>
+                            
+                            <!-- Booking Summary Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px; border-left: 4px solid #f59e0b; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h2 style="margin: 0 0 15px 0; color: #92400e; font-size: 16px; font-weight: 600;">📋 Booking Summary</h2>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 8px 0; border-bottom: 1px solid rgba(146, 64, 14, 0.1);">
+                                                    <span style="color: #92400e; font-size: 13px; font-weight: 500;">Booking ID:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; font-weight: 600; margin-left: 8px; font-family: monospace;">${bookingId.slice(-8)}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; border-bottom: 1px solid rgba(146, 64, 14, 0.1);">
+                                                    <span style="color: #92400e; font-size: 13px; font-weight: 500;">Date:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${formattedDate}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; border-bottom: 1px solid rgba(146, 64, 14, 0.1);">
+                                                    <span style="color: #92400e; font-size: 13px; font-weight: 500;">Time:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0;">
+                                                    <span style="color: #92400e; font-size: 13px; font-weight: 500;">Duration:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${slot.duration} minutes</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- User Details Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc; border-radius: 8px; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 15px 0; color: #2d3748; font-size: 15px; font-weight: 600;">👤 User Details</h3>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 6px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.05);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Name:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;">${booking.userName}</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.05);">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Email:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;"><a href="mailto:${booking.userEmail}" style="color: #667eea; text-decoration: none;">${booking.userEmail}</a></span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="color: #718096; font-size: 13px; font-weight: 500;">Phone:</span>
+                                                    <span style="color: #1a1a1a; font-size: 13px; margin-left: 8px;"><a href="tel:${booking.userPhone}" style="color: #667eea; text-decoration: none;">${booking.userPhone}</a></span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            ${booking.message ? `
+                            <!-- Message Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc; border-radius: 8px; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 12px 0; color: #2d3748; font-size: 15px; font-weight: 600;">💬 User Message</h3>
+                                        <p style="margin: 0; color: #4a5568; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${booking.message.replace(/\n/g, '<br>')}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            ` : ''}
+
+                            <!-- Action Button -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 20px 0;">
+                                <tr>
+                                    <td align="center" style="padding: 0 25px;">
+                                        <a href="${bookingUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">View & Manage Booking</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 25px 35px; text-align: center; border-top: 1px solid #e2e8f0;">
+                            <p style="margin: 0 0 8px 0; color: #2d3748; font-size: 14px; font-weight: 600;">EuProximaX Admin Portal</p>
+                            <p style="margin: 0; color: #a0aec0; font-size: 11px; line-height: 1.4;">This is an automated notification email. Booking ID: ${bookingId.slice(-8)}</p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+
+    // Send email to all admin emails
+    for (const email of adminEmails) {
+      try {
+        await sendMail({
+          to: email,
+          subject: emailSubject,
+          text: emailText,
+          html: emailHtml
+        });
+        logger.info(`Admin notification email sent to: ${email}`);
+      } catch (error) {
+        logger.error(`Failed to send admin notification email to ${email}`, { error: error.message });
+        // Continue sending to other admins even if one fails
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to send admin notification emails', { error: error.message, stack: error.stack });
+    // Don't throw error - email failure shouldn't block booking creation
+  }
+};
+
+/**
  * Book a consultation slot
  */
 const bookConsultation = async (req, res, next) => {
@@ -195,6 +658,49 @@ const bookConsultation = async (req, res, next) => {
     await booking.populate('slotId');
     
     logger.info(`Consultation booking created: ${booking._id} for slot: ${slotId}`);
+    
+    // Send emails (non-blocking - don't wait for them)
+    Promise.all([
+      // Send booking receipt to user
+      sendBookingReceiptEmail(booking),
+      // Send notification to admins
+      (async () => {
+        try {
+          // Find users with superuser or project manager roles
+          const superuserRole = await Role.findOne({ rolename: 'superuser' });
+          const projectManagerRole = await Role.findOne({ rolename: 'project manager' });
+          
+          const roleIds = [];
+          if (superuserRole) roleIds.push(superuserRole._id);
+          if (projectManagerRole) roleIds.push(projectManagerRole._id);
+          
+          if (roleIds.length > 0) {
+            const userRoles = await UserRole.find({ roleId: { $in: roleIds } }).populate({
+              path: 'userId',
+              select: 'email isDeleted',
+              match: { isDeleted: { $ne: true } }
+            });
+            const adminEmails = userRoles
+              .map(ur => {
+                const user = ur.userId;
+                if (user && typeof user === 'object' && user.email) {
+                  return user.email;
+                }
+                return null;
+              })
+              .filter(email => email && typeof email === 'string');
+            
+            if (adminEmails.length > 0) {
+              await sendAdminNotificationEmail(booking, adminEmails);
+            }
+          }
+        } catch (error) {
+          logger.error('Failed to send admin notifications', { error: error.message });
+        }
+      })()
+    ]).catch(error => {
+      logger.error('Email sending error (non-blocking)', { error: error.message });
+    });
     
     res.status(201).json({
       success: true,

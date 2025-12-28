@@ -44,5 +44,10 @@ module.exports = {
     },
     from: process.env.MAIL_FROM || 'contact@euproximax.com',
     logoUrl: process.env.LOGO_URL || 'PNG.png' // Full URL to logo for email templates
+  },
+
+  // Admin Portal Configuration
+  adminPortal: {
+    url: process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || 'http://localhost:5174'
   }
 };
