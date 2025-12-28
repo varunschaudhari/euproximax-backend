@@ -7,7 +7,7 @@ const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 const { sendMail } = require('../utils/mailer');
 
-const APPROVAL_PORTAL_URL = process.env.ADMIN_PORTAL_URL || 'https://app.euproximax.com';
+const APPROVAL_PORTAL_URL = process.env.ADMIN_PORTAL_URL || 'https://admin.euproximax.com';
 
 const createProject = async (req, res, next) => {
   try {

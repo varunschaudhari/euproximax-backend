@@ -185,7 +185,7 @@ Your Details:
 ${booking.message ? `- Message: ${booking.message}` : ''}
 
 Next Steps:
-Our team will review your booking and confirm the consultation. You will receive a confirmation email once your booking is approved.
+Your consultation is confirmed! We look forward to speaking with you on the scheduled date and time.
 
 If you need to cancel this booking, please visit: ${cancelUrl}
 
@@ -240,7 +240,7 @@ EuProximaX Team
                         <td style="padding: 30px 35px;">
                             <p style="margin: 0 0 15px 0; color: #1a1a1a; font-size: 16px; line-height: 1.5;">Dear <strong style="color: #667eea;">${booking.userName}</strong>,</p>
                             
-                            <p style="margin: 0 0 25px 0; color: #4a5568; font-size: 15px; line-height: 1.6;">Thank you for booking a consultation with EuProximaX! Your booking has been received and is pending confirmation.</p>
+                            <p style="margin: 0 0 25px 0; color: #4a5568; font-size: 15px; line-height: 1.6;">Thank you for booking a consultation with EuProximaX! Your booking has been confirmed.</p>
                             
                             <!-- Booking Summary Card -->
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%); border-radius: 8px; border-left: 4px solid #667eea; margin: 0 0 20px 0;">
@@ -325,8 +325,8 @@ EuProximaX Team
                                             <span style="display: inline-block; width: 24px; height: 24px; background-color: #22c55e; border-radius: 50%; margin-right: 8px; text-align: center; line-height: 24px; color: white; font-size: 14px; vertical-align: middle;">✓</span>
                                             Next Steps
                                         </h3>
-                                        <p style="margin: 0 0 12px 0; color: #166534; font-size: 14px; line-height: 1.6;">Our team will review your booking and confirm the consultation. You will receive a confirmation email once your booking is approved.</p>
-                                        <p style="margin: 0; color: #166534; font-size: 14px; line-height: 1.6;">For any questions, please contact us at <a href="mailto:contact@euproximax.com" style="color: #22c55e; text-decoration: none; font-weight: 600;">contact@euproximax.com</a></p>
+                                        <p style="margin: 0 0 12px 0; color: #166534; font-size: 14px; line-height: 1.6;">Your consultation is confirmed! We look forward to speaking with you on the scheduled date and time.</p>
+                                        <p style="margin: 0; color: #166534; font-size: 14px; line-height: 1.6;">For any questions or to reschedule, please contact us at <a href="mailto:contact@euproximax.com" style="color: #22c55e; text-decoration: none; font-weight: 600;">contact@euproximax.com</a></p>
                                     </td>
                                 </tr>
                             </table>
@@ -638,14 +638,15 @@ const bookConsultation = async (req, res, next) => {
       return next(new AppError('This slot is fully booked', 400));
     }
     
-    // Create booking
+    // Create booking with confirmed status
     const booking = await ConsultationBooking.create({
       slotId: slot._id,
       userName: userName.trim(),
       userEmail: userEmail.toLowerCase().trim(),
       userPhone: userPhone.trim(),
       message: message?.trim() || null,
-      status: 'pending'
+      status: 'confirmed',
+      confirmedAt: new Date()
     });
     
     // Update slot status if fully booked
