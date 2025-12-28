@@ -57,6 +57,32 @@ const normalizeDate = (date) => {
   return d;
 };
 
+/**
+ * Generate a unique Google Meet link
+ * Note: This generates a link format that follows Google Meet's pattern (abc-defg-hij)
+ * IMPORTANT: This creates a link in the correct format, but it won't be a working Meet link
+ * until it's created through Google Calendar API or manually in Google Calendar.
+ * For production, integrate with Google Calendar API to create actual Meet links when creating calendar events.
+ */
+const generateGoogleMeetLink = () => {
+  const { baseUrl, codeFormat, characterSet } = config.googleMeet;
+  
+  // Generate a random string for each part of the meeting code
+  const generatePart = (length) => {
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += characterSet.charAt(Math.floor(Math.random() * characterSet.length));
+    }
+    return result;
+  };
+  
+  const part1 = generatePart(codeFormat.part1Length);
+  const part2 = generatePart(codeFormat.part2Length);
+  const part3 = generatePart(codeFormat.part3Length);
+  
+  return `${baseUrl}/${part1}-${part2}-${part3}`;
+};
+
 // ==================== PUBLIC METHODS ====================
 
 /**
@@ -160,7 +186,7 @@ const sendBookingReceiptEmail = async (booking) => {
     };
 
     const bookingId = booking._id.toString();
-    const websiteUrl = process.env.WEBSITE_URL || 'http://localhost:5173';
+    const websiteUrl = config.website.url;
     const cancelUrl = `${websiteUrl}/consultation/confirmation/${bookingId}`;
 
     const emailSubject = `Consultation Booking Confirmed - Booking ID: ${bookingId.slice(-8)}`;
@@ -183,6 +209,10 @@ Your Details:
 - Email: ${booking.userEmail}
 - Phone: ${booking.userPhone}
 ${booking.message ? `- Message: ${booking.message}` : ''}
+${booking.meetingLink ? `
+Meeting Link:
+Join the consultation meeting: ${booking.meetingLink}
+` : ''}
 
 Next Steps:
 Your consultation is confirmed! We look forward to speaking with you on the scheduled date and time.
@@ -305,6 +335,28 @@ EuProximaX Team
                                     </td>
                                 </tr>
                             </table>
+                            ${booking.meetingLink ? `
+                            <!-- Meeting Link Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border-radius: 8px; border-left: 4px solid #22c55e; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 12px 0; color: #166534; font-size: 15px; font-weight: 600;">
+                                            <span style="display: inline-block; width: 24px; height: 24px; background-color: #22c55e; border-radius: 50%; margin-right: 8px; text-align: center; line-height: 24px; color: white; font-size: 14px; vertical-align: middle;">📹</span>
+                                            Google Meet Link
+                                        </h3>
+                                        <p style="margin: 0 0 15px 0; color: #166534; font-size: 14px; line-height: 1.6;">Join the consultation meeting using the link below:</p>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 15px 0;">
+                                            <tr>
+                                                <td align="center" style="padding: 0;">
+                                                    <a href="${booking.meetingLink}" style="display: inline-block; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; box-shadow: 0 4px 6px rgba(34, 197, 94, 0.3);">Join Google Meet</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p style="margin: 0; padding: 12px; background-color: rgba(255, 255, 255, 0.7); border-radius: 6px; color: #166534; font-size: 12px; font-family: monospace; word-break: break-all;">${booking.meetingLink}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            ` : ''}
                             ${booking.message ? `
                             <!-- Message Card -->
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc; border-radius: 8px; margin: 0 0 20px 0;">
@@ -422,6 +474,10 @@ User Details:
 - Email: ${booking.userEmail}
 - Phone: ${booking.userPhone}
 ${booking.message ? `- Message: ${booking.message}` : ''}
+${booking.meetingLink ? `
+Meeting Link:
+${booking.meetingLink}
+` : ''}
 
 View and manage this booking: ${bookingUrl}
 
@@ -537,6 +593,28 @@ EuProximaX System
                                     </td>
                                 </tr>
                             </table>
+                            ${booking.meetingLink ? `
+                            <!-- Meeting Link Card -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border-radius: 8px; border-left: 4px solid #22c55e; margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px 25px;">
+                                        <h3 style="margin: 0 0 12px 0; color: #166534; font-size: 15px; font-weight: 600;">
+                                            <span style="display: inline-block; width: 24px; height: 24px; background-color: #22c55e; border-radius: 50%; margin-right: 8px; text-align: center; line-height: 24px; color: white; font-size: 14px; vertical-align: middle;">📹</span>
+                                            Google Meet Link
+                                        </h3>
+                                        <p style="margin: 0 0 15px 0; color: #166534; font-size: 14px; line-height: 1.6;">Meeting link for this consultation:</p>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 15px 0;">
+                                            <tr>
+                                                <td align="center" style="padding: 0;">
+                                                    <a href="${booking.meetingLink}" style="display: inline-block; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; box-shadow: 0 4px 6px rgba(34, 197, 94, 0.3);">Join Google Meet</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p style="margin: 0; padding: 12px; background-color: rgba(255, 255, 255, 0.7); border-radius: 6px; color: #166534; font-size: 12px; font-family: monospace; word-break: break-all;">${booking.meetingLink}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            ` : ''}
                             ${booking.message ? `
                             <!-- Message Card -->
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc; border-radius: 8px; margin: 0 0 20px 0;">
@@ -638,6 +716,9 @@ const bookConsultation = async (req, res, next) => {
       return next(new AppError('This slot is fully booked', 400));
     }
     
+    // Generate Google Meet link
+    const meetingLink = generateGoogleMeetLink();
+    
     // Create booking with confirmed status
     const booking = await ConsultationBooking.create({
       slotId: slot._id,
@@ -646,7 +727,8 @@ const bookConsultation = async (req, res, next) => {
       userPhone: userPhone.trim(),
       message: message?.trim() || null,
       status: 'confirmed',
-      confirmedAt: new Date()
+      confirmedAt: new Date(),
+      meetingLink: meetingLink
     });
     
     // Update slot status if fully booked

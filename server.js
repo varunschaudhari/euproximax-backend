@@ -57,8 +57,8 @@ const allowedOrigins = [
   'https://euproximax.com',
   'https://www.euproximax.com',
   'https://admin.euproximax.com',
-  process.env.WEBSITE_URL,
-  process.env.ADMIN_URL,
+  config.website.url,
+  config.adminPortal.url,
 ].filter(Boolean); // Remove undefined values
 
 const corsOptions = {

@@ -49,5 +49,30 @@ module.exports = {
   // Admin Portal Configuration
   adminPortal: {
     url: process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || 'http://localhost:5174'
+  },
+
+  // Website URL Configuration
+  website: {
+    url: process.env.WEBSITE_URL || 'http://localhost:5173'
+  },
+
+  // Google Meet Configuration
+  googleMeet: {
+    baseUrl: process.env.GOOGLE_MEET_BASE_URL || 'https://meet.google.com',
+    // Meeting code format: [part1]-[part2]-[part3]
+    // Default: 3-4-3 format (e.g., abc-defg-hij)
+    codeFormat: {
+      part1Length: parseInt(process.env.GOOGLE_MEET_PART1_LENGTH || '3', 10),
+      part2Length: parseInt(process.env.GOOGLE_MEET_PART2_LENGTH || '4', 10),
+      part3Length: parseInt(process.env.GOOGLE_MEET_PART3_LENGTH || '3', 10)
+    },
+    // Character set for generating meeting codes (lowercase letters)
+    characterSet: process.env.GOOGLE_MEET_CHARSET || 'abcdefghijklmnopqrstuvwxyz'
+  },
+
+  // OpenAI Configuration
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
   }
 };

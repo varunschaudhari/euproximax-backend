@@ -1,9 +1,10 @@
 const OpenAI = require('openai');
 const logger = require('./logger');
+const config = require('./config');
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || ''
+    apiKey: config.openai.apiKey || ''
 });
 
 /**
@@ -14,11 +15,11 @@ const openai = new OpenAI({
  */
 const generateChatResponse = async (messages, options = {}) => {
     try {
-        if (!process.env.OPENAI_API_KEY) {
+        if (!config.openai.apiKey) {
             throw new Error('OpenAI API key not configured');
         }
 
-        const model = options.model || 'gpt-4o-mini';
+        const model = options.model || config.openai.model;
         const temperature = options.temperature || 0.7;
         const maxTokens = options.maxTokens || 1000;
 
@@ -83,7 +84,7 @@ Keep responses professional, technical when needed, and always end with a releva
  */
 const analyzeNovelty = async (idea, conversationHistory = '') => {
     try {
-        if (!process.env.OPENAI_API_KEY) {
+        if (!config.openai.apiKey) {
             throw new Error('OpenAI API key not configured');
         }
 
@@ -114,7 +115,7 @@ Respond in JSON format:
 }`;
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: config.openai.model,
             messages: [
                 {
                     role: 'system',
