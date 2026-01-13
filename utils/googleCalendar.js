@@ -156,6 +156,8 @@ const createCalendarEventWithMeet = async (eventData) => {
       conferenceData: {
         createRequest: {
           requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(7)}`
+          // Note: conferenceSolutionKey is not needed - API defaults to Google Meet
+          // when conferenceDataVersion: 1 is specified in the insert call
         }
       },
       reminders: {
@@ -176,10 +178,39 @@ const createCalendarEventWithMeet = async (eventData) => {
     const response = await client.events.insert({
       calendarId: googleCalendar.calendarId || 'primary',
       conferenceDataVersion: 1, // Required to create Meet link
-      requestBody: event
+      requestBody: event,
+      sendUpdates: 'none' // Don't send email notifications
     });
 
     const createdEvent = response.data;
+    
+    // If conferenceData is not in the response, try fetching the event again
+    // Sometimes the API doesn't return conferenceData immediately
+    if (!createdEvent.conferenceData && !createdEvent.hangoutLink) {
+      logger.info('Conference data not in initial response, fetching event details...', {
+        eventId: createdEvent.id
+      });
+      
+      try {
+        const fetchedEvent = await client.events.get({
+          calendarId: googleCalendar.calendarId || 'primary',
+          eventId: createdEvent.id,
+          conferenceDataVersion: 1
+        });
+        
+        if (fetchedEvent.data.conferenceData || fetchedEvent.data.hangoutLink) {
+          logger.info('Conference data found in fetched event');
+          Object.assign(createdEvent, {
+            conferenceData: fetchedEvent.data.conferenceData,
+            hangoutLink: fetchedEvent.data.hangoutLink
+          });
+        }
+      } catch (fetchError) {
+        logger.warn('Failed to fetch event details for conference data', {
+          error: fetchError.message
+        });
+      }
+    }
 
     // Extract Meet link from conference data or hangoutLink
     let meetLink = null;
@@ -197,11 +228,33 @@ const createCalendarEventWithMeet = async (eventData) => {
     }
 
     if (!meetLink) {
+      const shareInstructions = `
+IMPORTANT: Google Meet link was not generated. This is usually because the calendar is not properly shared with the service account.
+
+SOLUTION - Share Calendar with Service Account:
+1. Open Google Calendar: https://calendar.google.com
+2. Find your calendar "${googleCalendar.calendarId}" in the left sidebar
+3. Click the three dots (⋮) next to the calendar name
+4. Select "Settings and sharing"
+5. Scroll to "Share with specific people" section
+6. Click "Add people"
+7. Add this email: ${googleCalendar.serviceAccountEmail}
+8. Set permission to "Make changes to events" (or "Owner" for full access)
+9. Click "Send"
+10. Wait 2-3 minutes for permissions to propagate
+11. Try creating the event again
+
+ALTERNATIVE: If using a shared calendar, make sure the service account has "Make changes to events" permission.
+
+NOTE: The event was created successfully, but without a Meet link. You can manually add a Meet link in Google Calendar if needed.`;
+      
       logger.warn('Google Meet link not found in created event', { 
         eventId: createdEvent.id,
         hasConferenceData: !!createdEvent.conferenceData,
         hasHangoutLink: !!createdEvent.hangoutLink,
-        note: 'Make sure the calendar is shared with the service account: euproximax@steel-cairn-482717-e7.iam.gserviceaccount.com'
+        calendarId: googleCalendar.calendarId,
+        serviceAccountEmail: googleCalendar.serviceAccountEmail,
+        instructions: shareInstructions
       });
     }
 
@@ -307,7 +360,8 @@ const getCalendarEvent = async (eventId) => {
 
     const response = await client.events.get({
       calendarId: googleCalendar.calendarId || 'primary',
-      eventId
+      eventId,
+      conferenceDataVersion: 1
     });
 
     return response.data;
@@ -320,11 +374,64 @@ const getCalendarEvent = async (eventId) => {
   }
 };
 
+/**
+ * Verify calendar access and permissions
+ * @returns {Promise<Object>} Calendar access information
+ */
+const verifyCalendarAccess = async () => {
+  try {
+    const client = await initializeCalendarClient();
+    const { googleCalendar } = config;
+    const calendarId = googleCalendar.calendarId || 'primary';
+
+    // Try to get calendar metadata
+    const calendarResponse = await client.calendars.get({
+      calendarId
+    });
+
+    const calendar = calendarResponse.data;
+    
+    logger.info('Calendar access verified', {
+      calendarId,
+      summary: calendar.summary,
+      timeZone: calendar.timeZone,
+      accessRole: calendar.accessRole
+    });
+
+    return {
+      success: true,
+      calendarId,
+      summary: calendar.summary,
+      timeZone: calendar.timeZone,
+      accessRole: calendar.accessRole,
+      serviceAccountEmail: googleCalendar.serviceAccountEmail
+    };
+  } catch (error) {
+    const { googleCalendar } = config;
+    let errorMessage = `Failed to access calendar: ${error.message}`;
+    
+    if (error.message.includes('403') || error.message.includes('Forbidden')) {
+      errorMessage += `\n\nSOLUTION: Share your calendar with the service account email:\n${googleCalendar.serviceAccountEmail}\n\nSteps:\n1. Open Google Calendar\n2. Find your calendar in the left sidebar\n3. Click the three dots next to it\n4. Select "Settings and sharing"\n5. Under "Share with specific people", click "Add people"\n6. Add: ${googleCalendar.serviceAccountEmail}\n7. Give it "Make changes to events" permission\n8. Click "Send"`;
+    } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+      errorMessage += `\n\nSOLUTION: The calendar ID "${googleCalendar.calendarId || 'primary'}" was not found.\nPlease verify the calendar ID in your .env file.`;
+    }
+    
+    logger.error('Calendar access verification failed', {
+      error: error.message,
+      calendarId: googleCalendar.calendarId || 'primary',
+      serviceAccountEmail: googleCalendar.serviceAccountEmail
+    });
+    
+    throw new Error(errorMessage);
+  }
+};
+
 module.exports = {
   createCalendarEventWithMeet,
   updateCalendarEvent,
   deleteCalendarEvent,
   getCalendarEvent,
-  initializeCalendarClient
+  initializeCalendarClient,
+  verifyCalendarAccess
 };
 

@@ -4,7 +4,7 @@
  */
 
 require('dotenv').config();
-const { createCalendarEventWithMeet } = require('../utils/googleCalendar');
+const { createCalendarEventWithMeet, verifyCalendarAccess } = require('../utils/googleCalendar');
 const logger = require('../utils/logger');
 const config = require('../utils/config');
 
@@ -28,8 +28,29 @@ async function testGoogleCalendar() {
     process.exit(1);
   }
 
+  // Verify calendar access first
+  console.log('\n2. Verifying calendar access...');
+  try {
+    const accessInfo = await verifyCalendarAccess();
+    console.log('   ✓ Calendar access verified');
+    console.log(`   Calendar: ${accessInfo.summary}`);
+    console.log(`   Timezone: ${accessInfo.timeZone}`);
+    console.log(`   Access Role: ${accessInfo.accessRole}`);
+    console.log(`   Service Account: ${accessInfo.serviceAccountEmail}`);
+    
+    if (accessInfo.accessRole !== 'owner' && accessInfo.accessRole !== 'writer') {
+      console.log('\n⚠️  WARNING: Service account may not have sufficient permissions.');
+      console.log('   Required: "Make changes to events" or "Owner" permission');
+    }
+  } catch (error) {
+    console.log(`   ✗ ${error.message}`);
+    console.log('\n❌ Cannot proceed with event creation test.');
+    console.log('   Please fix the calendar access issue first.');
+    process.exit(1);
+  }
+
   // Test creating a calendar event
-  console.log('\n2. Testing calendar event creation...');
+  console.log('\n3. Testing calendar event creation...');
   
   const testStartTime = new Date();
   testStartTime.setHours(testStartTime.getHours() + 1); // 1 hour from now
@@ -69,9 +90,20 @@ async function testGoogleCalendar() {
     console.log('\n✅ Test completed successfully!');
     console.log('\nNext steps:');
     console.log('1. Check your Google Calendar to see the test event');
-    console.log('2. If Meet link is missing, share your calendar with:');
-    console.log(`   ${googleCalendar.serviceAccountEmail}`);
-    console.log('3. Make sure Google Calendar API is enabled in Google Cloud Console');
+    if (!result.meetLink) {
+      console.log('\n2. To fix missing Meet link:');
+      console.log('   a. Open Google Calendar (https://calendar.google.com)');
+      console.log('   b. Find your calendar in the left sidebar');
+      console.log('   c. Click the three dots (⋮) next to the calendar name');
+      console.log('   d. Select "Settings and sharing"');
+      console.log('   e. Scroll to "Share with specific people"');
+      console.log('   f. Click "Add people"');
+      console.log(`   g. Add: ${googleCalendar.serviceAccountEmail}`);
+      console.log('   h. Set permission to "Make changes to events"');
+      console.log('   i. Click "Send"');
+      console.log('   j. Wait a few minutes and run this test again');
+    }
+    console.log('\n3. Make sure Google Calendar API is enabled in Google Cloud Console');
     
   } catch (error) {
     console.log('\n❌ ERROR: Failed to create calendar event');
