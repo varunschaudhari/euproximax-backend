@@ -56,7 +56,7 @@ module.exports = {
     url: process.env.WEBSITE_URL || 'http://localhost:5173'
   },
 
-  // Google Meet Configuration
+  // Google Meet Configuration (Legacy - kept for backward compatibility)
   googleMeet: {
     baseUrl: process.env.GOOGLE_MEET_BASE_URL || 'https://meet.google.com',
     // Meeting code format: [part1]-[part2]-[part3]
@@ -68,6 +68,23 @@ module.exports = {
     },
     // Character set for generating meeting codes (lowercase letters)
     characterSet: process.env.GOOGLE_MEET_CHARSET || 'abcdefghijklmnopqrstuvwxyz'
+  },
+
+  // Google Calendar API Configuration
+  googleCalendar: {
+    // Service Account Authentication (Recommended for server-to-server)
+    serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || 'euproximax@steel-cairn-482717-e7.iam.gserviceaccount.com',
+    privateKey: process.env.GOOGLE_PRIVATE_KEY || '',
+    delegateUser: process.env.GOOGLE_DELEGATE_USER || null, // Optional: delegate to a user account
+    
+    // OAuth2 Authentication (Alternative method)
+    clientId: process.env.GOOGLE_CLIENT_ID || '115059628190750064173',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    refreshToken: process.env.GOOGLE_REFRESH_TOKEN || '',
+    
+    // Calendar Settings
+    calendarId: process.env.GOOGLE_CALENDAR_ID || 'primary', // 'primary' or specific calendar ID
+    timezone: process.env.GOOGLE_CALENDAR_TIMEZONE || 'Asia/Kolkata'
   },
 
   // OpenAI Configuration

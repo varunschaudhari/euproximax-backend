@@ -7,6 +7,7 @@ const config = require('../utils/config');
 const User = require('../models/User');
 const Role = require('../models/Role');
 const UserRole = require('../models/UserRole');
+const { createCalendarEventWithMeet } = require('../utils/googleCalendar');
 
 /**
  * Calculate end time from start time and duration
@@ -58,11 +59,9 @@ const normalizeDate = (date) => {
 };
 
 /**
- * Generate a unique Google Meet link
+ * Generate a unique Google Meet link (Legacy fallback)
  * Note: This generates a link format that follows Google Meet's pattern (abc-defg-hij)
- * IMPORTANT: This creates a link in the correct format, but it won't be a working Meet link
- * until it's created through Google Calendar API or manually in Google Calendar.
- * For production, integrate with Google Calendar API to create actual Meet links when creating calendar events.
+ * This is used as a fallback if Google Calendar API is not configured or fails
  */
 const generateGoogleMeetLink = () => {
   const { baseUrl, codeFormat, characterSet } = config.googleMeet;
@@ -81,6 +80,90 @@ const generateGoogleMeetLink = () => {
   const part3 = generatePart(codeFormat.part3Length);
   
   return `${baseUrl}/${part1}-${part2}-${part3}`;
+};
+
+/**
+ * Create Google Calendar event with Meet link for consultation booking
+ * @param {Object} slot - Consultation slot object
+ * @param {Object} booking - Booking object with user details
+ * @returns {Promise<string>} Google Meet link
+ */
+const createGoogleMeetForBooking = async (slot, booking) => {
+  try {
+    // Calculate start and end datetime
+    const startDateTime = new Date(slot.date);
+    const [startHours, startMinutes] = slot.startTime.split(':').map(Number);
+    startDateTime.setHours(startHours, startMinutes, 0, 0);
+
+    const endDateTime = new Date(slot.date);
+    const [endHours, endMinutes] = slot.endTime.split(':').map(Number);
+    endDateTime.setHours(endHours, endMinutes, 0, 0);
+
+    // If endTime is earlier than startTime, assume it's next day
+    if (endDateTime <= startDateTime) {
+      endDateTime.setDate(endDateTime.getDate() + 1);
+    }
+
+    // Format date for description
+    const formattedDate = startDateTime.toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const formattedTime = startDateTime.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    // Create event description
+    const description = `Consultation Booking Details:
+    
+Client: ${booking.userName}
+Email: ${booking.userEmail}
+Phone: ${booking.userPhone}
+${booking.message ? `Message: ${booking.message}` : ''}
+
+Date: ${formattedDate}
+Time: ${formattedTime} IST
+
+This is an automated consultation booking.`;
+
+    // Note: Service accounts cannot add attendees without domain-wide delegation
+    // We'll create the event without attendees, but the Meet link will still be generated
+    // Users can manually invite people using the Meet link
+    const attendees = []; // Empty array - service accounts can't invite without domain-wide delegation
+
+    // Create calendar event with Meet link
+    const eventResult = await createCalendarEventWithMeet({
+      startDateTime,
+      endDateTime,
+      summary: `Consultation: ${booking.userName}`,
+      description,
+      attendees,
+      location: 'Google Meet',
+      timezone: config.googleCalendar.timezone || 'Asia/Kolkata'
+    });
+
+    logger.info('Google Calendar event created for booking', {
+      bookingId: booking._id,
+      eventId: eventResult.eventId,
+      meetLink: eventResult.meetLink ? 'generated' : 'missing'
+    });
+
+    return eventResult.meetLink;
+  } catch (error) {
+    logger.error('Failed to create Google Calendar event for booking', {
+      bookingId: booking._id,
+      error: error.message,
+      stack: error.stack
+    });
+    
+    // Fallback to generated link if Calendar API fails
+    logger.warn('Falling back to generated Meet link format');
+    return generateGoogleMeetLink();
+  }
 };
 
 // ==================== PUBLIC METHODS ====================
@@ -716,10 +799,7 @@ const bookConsultation = async (req, res, next) => {
       return next(new AppError('This slot is fully booked', 400));
     }
     
-    // Generate Google Meet link
-    const meetingLink = generateGoogleMeetLink();
-    
-    // Create booking with confirmed status
+    // Create booking first (without meeting link)
     const booking = await ConsultationBooking.create({
       slotId: slot._id,
       userName: userName.trim(),
@@ -728,17 +808,37 @@ const bookConsultation = async (req, res, next) => {
       message: message?.trim() || null,
       status: 'confirmed',
       confirmedAt: new Date(),
-      meetingLink: meetingLink
+      meetingLink: null // Will be updated after calendar event creation
     });
+    
+    // Populate slot details for calendar event creation
+    await booking.populate('slotId');
+    
+    // Create Google Calendar event with Meet link
+    let meetingLink;
+    try {
+      meetingLink = await createGoogleMeetForBooking(slot, booking);
+      
+      // Update booking with Meet link
+      booking.meetingLink = meetingLink;
+      await booking.save();
+    } catch (error) {
+      logger.error('Failed to create Google Meet link, but booking was created', {
+        bookingId: booking._id,
+        error: error.message
+      });
+      // Continue with booking even if Meet link creation fails
+      // Use fallback link
+      meetingLink = generateGoogleMeetLink();
+      booking.meetingLink = meetingLink;
+      await booking.save();
+    }
     
     // Update slot status if fully booked
     if (currentBookings + 1 >= slot.maxBookings) {
       slot.status = 'booked';
       await slot.save();
     }
-    
-    // Populate slot details
-    await booking.populate('slotId');
     
     logger.info(`Consultation booking created: ${booking._id} for slot: ${slotId}`);
     
