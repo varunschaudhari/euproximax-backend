@@ -21,7 +21,25 @@ const initializeCalendarClient = async () => {
   try {
     const { googleCalendar } = config;
 
-    // Service Account Authentication (Recommended for server-to-server)
+    // OAuth2 Authentication (Preferred - can generate Meet links)
+    // Service accounts cannot generate Meet links, so prefer OAuth2 if available
+    if (googleCalendar.clientId && googleCalendar.clientSecret && googleCalendar.refreshToken) {
+      const oauth2Client = new google.auth.OAuth2(
+        googleCalendar.clientId,
+        googleCalendar.clientSecret
+      );
+
+      oauth2Client.setCredentials({
+        refresh_token: googleCalendar.refreshToken
+      });
+
+      calendarClient = google.calendar({ version: 'v3', auth: oauth2Client });
+      logger.info('Google Calendar client initialized with OAuth2');
+      return calendarClient;
+    }
+
+    // Service Account Authentication (Fallback - cannot generate Meet links)
+    // Note: Service accounts have limitations and cannot generate Google Meet links
     if (googleCalendar.serviceAccountEmail && googleCalendar.privateKey) {
       // Parse the private key - handle both escaped \n and actual newlines
       let privateKey = googleCalendar.privateKey;
@@ -70,22 +88,7 @@ const initializeCalendarClient = async () => {
       }
 
       calendarClient = google.calendar({ version: 'v3', auth });
-      return calendarClient;
-    }
-
-    // OAuth2 Authentication (Alternative method)
-    if (googleCalendar.clientId && googleCalendar.clientSecret && googleCalendar.refreshToken) {
-      const oauth2Client = new google.auth.OAuth2(
-        googleCalendar.clientId,
-        googleCalendar.clientSecret
-      );
-
-      oauth2Client.setCredentials({
-        refresh_token: googleCalendar.refreshToken
-      });
-
-      calendarClient = google.calendar({ version: 'v3', auth: oauth2Client });
-      logger.info('Google Calendar client initialized with OAuth2');
+      logger.warn('Using Service Account - Note: Service accounts cannot generate Google Meet links. Consider using OAuth2 instead.');
       return calendarClient;
     }
 
@@ -156,8 +159,8 @@ const createCalendarEventWithMeet = async (eventData) => {
       conferenceData: {
         createRequest: {
           requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(7)}`
-          // Note: conferenceSolutionKey is not needed - API defaults to Google Meet
-          // when conferenceDataVersion: 1 is specified in the insert call
+          // Note: conferenceSolutionKey is optional - when omitted, Google defaults to hangoutsMeet
+          // However, Meet links may not be generated if calendar is not properly shared with service account
         }
       },
       reminders: {
@@ -174,22 +177,61 @@ const createCalendarEventWithMeet = async (eventData) => {
       event.location = location;
     }
 
-    // Create the event
-    const response = await client.events.insert({
-      calendarId: googleCalendar.calendarId || 'primary',
-      conferenceDataVersion: 1, // Required to create Meet link
-      requestBody: event,
-      sendUpdates: 'none' // Don't send email notifications
-    });
+    // Create the event with conference data
+    // Try with conferenceSolutionKey first, fallback if it fails
+    let response;
+    try {
+      response = await client.events.insert({
+        calendarId: googleCalendar.calendarId || 'primary',
+        conferenceDataVersion: 1, // Required to create Meet link
+        requestBody: event,
+        sendUpdates: 'none' // Don't send email notifications
+      });
+    } catch (insertError) {
+      // If we get "Invalid conference type value", try without conferenceSolutionKey
+      if (insertError.message.includes('Invalid conference type') || insertError.message.includes('conference')) {
+        logger.warn('Failed to create event with conferenceSolutionKey, trying without it', {
+          error: insertError.message
+        });
+        
+        // Remove conferenceSolutionKey and try again
+        const eventWithoutSolutionKey = { ...event };
+        if (eventWithoutSolutionKey.conferenceData?.createRequest?.conferenceSolutionKey) {
+          delete eventWithoutSolutionKey.conferenceData.createRequest.conferenceSolutionKey;
+        }
+        
+        response = await client.events.insert({
+          calendarId: googleCalendar.calendarId || 'primary',
+          conferenceDataVersion: 1,
+          requestBody: eventWithoutSolutionKey,
+          sendUpdates: 'none'
+        });
+      } else {
+        throw insertError;
+      }
+    }
 
     const createdEvent = response.data;
     
+    // Log the full response for debugging
+    logger.debug('Calendar event created', {
+      eventId: createdEvent.id,
+      hasConferenceData: !!createdEvent.conferenceData,
+      hasHangoutLink: !!createdEvent.hangoutLink,
+      conferenceDataKeys: createdEvent.conferenceData ? Object.keys(createdEvent.conferenceData) : [],
+      responseKeys: Object.keys(createdEvent)
+    });
+    
     // If conferenceData is not in the response, try fetching the event again
-    // Sometimes the API doesn't return conferenceData immediately
+    // Sometimes the API doesn't return conferenceData immediately, especially with service accounts
     if (!createdEvent.conferenceData && !createdEvent.hangoutLink) {
       logger.info('Conference data not in initial response, fetching event details...', {
-        eventId: createdEvent.id
+        eventId: createdEvent.id,
+        calendarId: googleCalendar.calendarId || 'primary'
       });
+      
+      // Wait a short moment for Google to process the conference data
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       try {
         const fetchedEvent = await client.events.get({
@@ -198,16 +240,28 @@ const createCalendarEventWithMeet = async (eventData) => {
           conferenceDataVersion: 1
         });
         
+        logger.debug('Fetched event details', {
+          hasConferenceData: !!fetchedEvent.data.conferenceData,
+          hasHangoutLink: !!fetchedEvent.data.hangoutLink,
+          conferenceDataKeys: fetchedEvent.data.conferenceData ? Object.keys(fetchedEvent.data.conferenceData) : []
+        });
+        
         if (fetchedEvent.data.conferenceData || fetchedEvent.data.hangoutLink) {
           logger.info('Conference data found in fetched event');
           Object.assign(createdEvent, {
             conferenceData: fetchedEvent.data.conferenceData,
             hangoutLink: fetchedEvent.data.hangoutLink
           });
+        } else {
+          logger.warn('Conference data still not available after fetch', {
+            eventId: createdEvent.id,
+            note: 'This usually means the calendar is not properly shared with the service account'
+          });
         }
       } catch (fetchError) {
         logger.warn('Failed to fetch event details for conference data', {
-          error: fetchError.message
+          error: fetchError.message,
+          code: fetchError.code
         });
       }
     }
@@ -215,38 +269,136 @@ const createCalendarEventWithMeet = async (eventData) => {
     // Extract Meet link from conference data or hangoutLink
     let meetLink = null;
     
-    // Try to get from conferenceData first
+    // Try multiple ways to extract the Meet link
+    // Method 1: From conferenceData.entryPoints (newer API format)
     if (createdEvent.conferenceData?.entryPoints) {
-      meetLink = createdEvent.conferenceData.entryPoints.find(
+      const videoEntry = createdEvent.conferenceData.entryPoints.find(
         entry => entry.entryPointType === 'video'
-      )?.uri || null;
+      );
+      if (videoEntry?.uri) {
+        meetLink = videoEntry.uri;
+        logger.debug('Meet link found in conferenceData.entryPoints');
+      }
     }
     
-    // Fallback to hangoutLink if conferenceData doesn't have it
+    // Method 2: From hangoutLink (legacy format, still used sometimes)
     if (!meetLink && createdEvent.hangoutLink) {
       meetLink = createdEvent.hangoutLink;
+      logger.debug('Meet link found in hangoutLink');
+    }
+    
+    // Method 3: Try to construct from conferenceData.conferenceId if available
+    if (!meetLink && createdEvent.conferenceData?.conferenceId) {
+      // Some responses might have conferenceId but not the full link
+      logger.debug('Conference ID found but no link', {
+        conferenceId: createdEvent.conferenceData.conferenceId
+      });
     }
 
+    // If Meet link is still not found, try multiple approaches
+    if (!meetLink) {
+      // Approach 1: Try to patch the event to add conference data
+      logger.info('Attempting to patch event to add Meet link...', {
+        eventId: createdEvent.id
+      });
+      
+      try {
+        // Try to update the event with conference data
+        const patchResponse = await client.events.patch({
+          calendarId: googleCalendar.calendarId || 'primary',
+          eventId: createdEvent.id,
+          conferenceDataVersion: 1,
+          requestBody: {
+            conferenceData: {
+              createRequest: {
+                requestId: `meet-patch-${Date.now()}-${Math.random().toString(36).substring(7)}`
+              }
+            }
+          }
+        });
+        
+        const patchedEvent = patchResponse.data;
+        
+        // Try to extract Meet link from patched event
+        if (patchedEvent.conferenceData?.entryPoints) {
+          const videoEntry = patchedEvent.conferenceData.entryPoints.find(
+            entry => entry.entryPointType === 'video'
+          );
+          if (videoEntry?.uri) {
+            meetLink = videoEntry.uri;
+            logger.info('Meet link generated via patch');
+          }
+        }
+        
+        if (!meetLink && patchedEvent.hangoutLink) {
+          meetLink = patchedEvent.hangoutLink;
+          logger.info('Meet link found in patched event hangoutLink');
+        }
+      } catch (patchError) {
+        logger.warn('Failed to patch event with conference data', {
+          error: patchError.message,
+          code: patchError.code
+        });
+      }
+      
+      // Approach 2: Wait and fetch again (sometimes Google needs time to process)
+      if (!meetLink) {
+        logger.info('Waiting and fetching event again...', {
+          eventId: createdEvent.id
+        });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        try {
+          const retryResponse = await client.events.get({
+            calendarId: googleCalendar.calendarId || 'primary',
+            eventId: createdEvent.id,
+            conferenceDataVersion: 1
+          });
+          
+          const retryEvent = retryResponse.data;
+          if (retryEvent.conferenceData?.entryPoints) {
+            const videoEntry = retryEvent.conferenceData.entryPoints.find(
+              entry => entry.entryPointType === 'video'
+            );
+            if (videoEntry?.uri) {
+              meetLink = videoEntry.uri;
+              logger.info('Meet link found in retry fetch');
+            }
+          }
+          
+          if (!meetLink && retryEvent.hangoutLink) {
+            meetLink = retryEvent.hangoutLink;
+            logger.info('Meet link found in retry fetch (hangoutLink)');
+          }
+        } catch (retryError) {
+          logger.debug('Retry fetch failed', { error: retryError.message });
+        }
+      }
+    }
+    
     if (!meetLink) {
       const shareInstructions = `
-IMPORTANT: Google Meet link was not generated. This is usually because the calendar is not properly shared with the service account.
+IMPORTANT: Google Meet link was not generated. This is a known limitation with service accounts.
 
-SOLUTION - Share Calendar with Service Account:
-1. Open Google Calendar: https://calendar.google.com
-2. Find your calendar "${googleCalendar.calendarId}" in the left sidebar
-3. Click the three dots (⋮) next to the calendar name
-4. Select "Settings and sharing"
-5. Scroll to "Share with specific people" section
-6. Click "Add people"
-7. Add this email: ${googleCalendar.serviceAccountEmail}
-8. Set permission to "Make changes to events" (or "Owner" for full access)
-9. Click "Send"
-10. Wait 2-3 minutes for permissions to propagate
-11. Try creating the event again
+POSSIBLE SOLUTIONS:
+1. Upgrade service account to "Owner" permission (instead of "Writer")
+   - Go to Google Calendar > Settings > Share with specific people
+   - Change permission for ${googleCalendar.serviceAccountEmail} to "Owner"
 
-ALTERNATIVE: If using a shared calendar, make sure the service account has "Make changes to events" permission.
+2. Use Domain-Wide Delegation (for Google Workspace)
+   - Enable domain-wide delegation in Google Cloud Console
+   - This allows service accounts to act on behalf of users
 
-NOTE: The event was created successfully, but without a Meet link. You can manually add a Meet link in Google Calendar if needed.`;
+3. Use OAuth2 instead of Service Account
+   - Configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN
+   - OAuth2 accounts can generate Meet links more reliably
+
+4. Manually add Meet link in Google Calendar
+   - The event was created successfully
+   - You can manually add a Meet link in the Google Calendar UI
+
+NOTE: Service accounts with "Writer" permission may not be able to generate Meet links.
+This is a Google Calendar API limitation for service accounts.`;
       
       logger.warn('Google Meet link not found in created event', { 
         eventId: createdEvent.id,

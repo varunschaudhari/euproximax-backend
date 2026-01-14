@@ -15,15 +15,26 @@ async function testGoogleCalendar() {
   console.log('1. Checking configuration...');
   const { googleCalendar } = config;
   
+  const hasOAuth2 = !!(googleCalendar.clientId && googleCalendar.clientSecret && googleCalendar.refreshToken);
+  const hasServiceAccount = !!(googleCalendar.serviceAccountEmail && googleCalendar.privateKey);
+
+  console.log(`   OAuth2 Client ID: ${googleCalendar.clientId ? '✓ Set' : '✗ Missing'}`);
+  console.log(`   OAuth2 Client Secret: ${googleCalendar.clientSecret ? '✓ Set' : '✗ Missing'}`);
+  console.log(`   OAuth2 Refresh Token: ${googleCalendar.refreshToken ? '✓ Set' : '✗ Missing'}`);
   console.log(`   Service Account Email: ${googleCalendar.serviceAccountEmail ? '✓ Set' : '✗ Missing'}`);
   console.log(`   Private Key: ${googleCalendar.privateKey ? '✓ Set' : '✗ Missing'}`);
   console.log(`   Calendar ID: ${googleCalendar.calendarId || 'primary'}`);
   console.log(`   Timezone: ${googleCalendar.timezone || 'Asia/Kolkata'}`);
 
-  if (!googleCalendar.serviceAccountEmail || !googleCalendar.privateKey) {
+  if (!hasOAuth2 && !hasServiceAccount) {
     console.log('\n❌ ERROR: Google Calendar credentials are not configured!');
-    console.log('\nPlease add to your .env file:');
-    console.log('GOOGLE_SERVICE_ACCOUNT_EMAIL=euproximax@steel-cairn-482717-e7.iam.gserviceaccount.com');
+    console.log('\nPlease add OAuth2 or Service Account credentials to your .env file.');
+    console.log('OAuth2 (recommended for Meet links):');
+    console.log('GOOGLE_CLIENT_ID=...');
+    console.log('GOOGLE_CLIENT_SECRET=...');
+    console.log('GOOGLE_REFRESH_TOKEN=...');
+    console.log('\nService Account (events only, no Meet links):');
+    console.log('GOOGLE_SERVICE_ACCOUNT_EMAIL=...');
     console.log('GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...your key...\\n-----END PRIVATE KEY-----\\n"');
     process.exit(1);
   }
@@ -35,12 +46,13 @@ async function testGoogleCalendar() {
     console.log('   ✓ Calendar access verified');
     console.log(`   Calendar: ${accessInfo.summary}`);
     console.log(`   Timezone: ${accessInfo.timeZone}`);
-    console.log(`   Access Role: ${accessInfo.accessRole}`);
-    console.log(`   Service Account: ${accessInfo.serviceAccountEmail}`);
-    
-    if (accessInfo.accessRole !== 'owner' && accessInfo.accessRole !== 'writer') {
-      console.log('\n⚠️  WARNING: Service account may not have sufficient permissions.');
-      console.log('   Required: "Make changes to events" or "Owner" permission');
+    console.log(`   Access Role: ${accessInfo.accessRole || 'unknown'}`);
+    if (hasServiceAccount && !hasOAuth2) {
+      console.log(`   Service Account: ${accessInfo.serviceAccountEmail}`);
+      if (accessInfo.accessRole !== 'owner' && accessInfo.accessRole !== 'writer') {
+        console.log('\n⚠️  WARNING: Service account may not have sufficient permissions.');
+        console.log('   Required: "Make changes to events" or "Owner" permission');
+      }
     }
   } catch (error) {
     console.log(`   ✗ ${error.message}`);
@@ -81,16 +93,21 @@ async function testGoogleCalendar() {
     } else {
       console.log('\n⚠️  WARNING: Google Meet link was not generated.');
       console.log('   This might be because:');
-      console.log('   - The calendar is not shared with the service account');
-      console.log(`   - Share your calendar with: ${googleCalendar.serviceAccountEmail}`);
+      if (hasOAuth2) {
+        console.log('   - OAuth2 consent is missing required scopes');
+        console.log('   - The OAuth refresh token is invalid or revoked');
+      } else {
+        console.log('   - The calendar is not shared with the service account');
+        console.log(`   - Share your calendar with: ${googleCalendar.serviceAccountEmail}`);
+        console.log('   - Domain-wide delegation is not set up');
+      }
       console.log('   - Google Calendar API is not enabled');
-      console.log('   - Domain-wide delegation is not set up');
     }
 
     console.log('\n✅ Test completed successfully!');
     console.log('\nNext steps:');
     console.log('1. Check your Google Calendar to see the test event');
-    if (!result.meetLink) {
+    if (!result.meetLink && !hasOAuth2) {
       console.log('\n2. To fix missing Meet link:');
       console.log('   a. Open Google Calendar (https://calendar.google.com)');
       console.log('   b. Find your calendar in the left sidebar');
@@ -102,6 +119,10 @@ async function testGoogleCalendar() {
       console.log('   h. Set permission to "Make changes to events"');
       console.log('   i. Click "Send"');
       console.log('   j. Wait a few minutes and run this test again');
+    } else if (!result.meetLink && hasOAuth2) {
+      console.log('\n2. If Meet link is still missing with OAuth2:');
+      console.log('   - Re-generate the refresh token with "prompt=consent"');
+      console.log('   - Ensure scopes include calendar and calendar.events');
     }
     console.log('\n3. Make sure Google Calendar API is enabled in Google Cloud Console');
     
