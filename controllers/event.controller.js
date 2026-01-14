@@ -3,6 +3,52 @@ const Event = require('../models/Event');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 
+const getBaseUrl = (req) => {
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const protocol = forwardedProto ? forwardedProto.split(',')[0].trim() : req.protocol;
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const host = forwardedHost ? forwardedHost.split(',')[0].trim() : req.get('host');
+  return `${protocol}://${host}`;
+};
+
+const toAbsoluteUrl = (req, url) => {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${getBaseUrl(req)}${url}`;
+};
+
+const normalizeUploadPath = (url) => {
+  if (!url) return url;
+  try {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const parsed = new URL(url);
+      if (parsed.pathname && parsed.pathname.startsWith('/uploads/')) {
+        return parsed.pathname;
+      }
+      return url;
+    }
+  } catch (err) {
+    // Fall through to return original url
+  }
+  return url;
+};
+
+const formatEventForResponse = (req, event) => {
+  if (!event) return event;
+  const formatted = { ...event };
+  if (formatted.heroImage) {
+    const normalizedHero = normalizeUploadPath(formatted.heroImage);
+    formatted.heroImage = toAbsoluteUrl(req, normalizedHero);
+  }
+  if (Array.isArray(formatted.images)) {
+    formatted.images = formatted.images.map((img) => ({
+      ...img,
+      url: toAbsoluteUrl(req, normalizeUploadPath(img.url)),
+    }));
+  }
+  return formatted;
+};
+
 const slugify = (value) => {
   return value
     .toString()
@@ -65,10 +111,12 @@ const publicListEvents = async (req, res, next) => {
       .limit(limit)
       .lean();
 
+    const formattedItems = items.map((event) => formatEventForResponse(req, event));
+
     res.status(200).json({
       success: true,
       message: 'Events fetched successfully',
-      data: items,
+      data: formattedItems,
     });
   } catch (error) {
     logger.error('Public list events error', { error: error.message, stack: error.stack });
@@ -104,11 +152,13 @@ const adminListEvents = async (req, res, next) => {
       Event.distinct('category'),
     ]);
 
+    const formattedItems = items.map((event) => formatEventForResponse(req, event));
+
     res.status(200).json({
       success: true,
       message: 'Events fetched successfully',
       data: {
-        items,
+        items: formattedItems,
         page,
         limit,
         total,
@@ -131,7 +181,7 @@ const adminGetEvent = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Event fetched successfully',
-      data: event,
+      data: formatEventForResponse(req, event),
     });
   } catch (error) {
     logger.error('Admin get event error', { error: error.message, stack: error.stack, eventId: req.params.id });
@@ -214,7 +264,7 @@ const createEvent = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Event created successfully',
-      data: event,
+      data: formatEventForResponse(req, event.toObject ? event.toObject() : event),
     });
   } catch (error) {
     logger.error('Create event error', { error: error.message, stack: error.stack });
@@ -290,7 +340,8 @@ const updateEvent = async (req, res, next) => {
     }
 
     if (updates.heroImage !== undefined) {
-      event.heroImage = updates.heroImage?.trim() || null;
+      const normalizedHero = normalizeUploadPath(updates.heroImage?.trim());
+      event.heroImage = normalizedHero || null;
     }
 
     if (updates.heroImageAlt !== undefined) {
@@ -347,7 +398,7 @@ const updateEvent = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Event updated successfully',
-      data: event,
+      data: formatEventForResponse(req, event.toObject ? event.toObject() : event),
     });
   } catch (error) {
     logger.error('Update event error', { error: error.message, stack: error.stack, eventId: req.params.id });
@@ -391,12 +442,13 @@ const uploadHeroImage = async (req, res, next) => {
     }
 
     const filePath = `/uploads/event/${req.file.filename}`;
+    const absoluteUrl = toAbsoluteUrl(req, filePath);
 
     res.status(200).json({
       success: true,
       message: 'Hero image uploaded successfully',
       data: {
-        url: filePath,
+        url: absoluteUrl,
         filename: req.file.filename,
         originalname: req.file.originalname,
       },
@@ -423,12 +475,15 @@ const uploadGalleryImages = async (req, res, next) => {
       return next(new AppError('No files uploaded', 400));
     }
 
-    const uploadedImages = req.files.map((file, index) => ({
-      url: `/uploads/event/${file.filename}`,
-      alt: file.originalname.replace(/\.[^/.]+$/, ''),
-      caption: '',
-      order: index,
-    }));
+    const uploadedImages = req.files.map((file, index) => {
+      const relativeUrl = `/uploads/event/${file.filename}`;
+      return {
+        url: toAbsoluteUrl(req, relativeUrl),
+        alt: file.originalname.replace(/\.[^/.]+$/, ''),
+        caption: '',
+        order: index,
+      };
+    });
 
     logger.info('Gallery images uploaded successfully', { count: uploadedImages.length });
 
@@ -458,12 +513,17 @@ const updateEventImages = async (req, res, next) => {
     }
 
     if (Array.isArray(images)) {
-      event.images = images.map((img, index) => ({
-        url: img.url?.trim() || '',
-        alt: img.alt?.trim() || '',
-        caption: img.caption?.trim() || '',
-        order: img.order !== undefined ? Number(img.order) : index,
-      })).filter((img) => img.url);
+      event.images = images
+        .map((img, index) => {
+          const normalizedUrl = normalizeUploadPath(img.url?.trim());
+          return {
+            url: normalizedUrl || '',
+            alt: img.alt?.trim() || '',
+            caption: img.caption?.trim() || '',
+            order: img.order !== undefined ? Number(img.order) : index,
+          };
+        })
+        .filter((img) => img.url);
     }
 
     await event.save();
