@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const config = require('../utils/config');
 
 /**
  * Custom Error class for application errors
@@ -96,7 +97,7 @@ const errorHandler = (err, req, res, next) => {
     stack: err.stack
   });
 
-  if (process.env.NODE_ENV === 'development') {
+  if (config.server.nodeEnv === 'development') {
     sendErrorDev(err, res);
   } else {
     let error = { ...err };
