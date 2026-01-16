@@ -19,18 +19,37 @@ const toAbsoluteUrl = (req, url) => {
 
 const normalizeUploadPath = (url) => {
   if (!url) return url;
+  if (typeof url !== 'string') return url;
+  
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) return null;
+  
   try {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      const parsed = new URL(url);
+    // If it's an absolute URL (http/https), extract just the pathname
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      const parsed = new URL(trimmedUrl);
+      // Extract pathname if it starts with /uploads/, otherwise return as-is
       if (parsed.pathname && parsed.pathname.startsWith('/uploads/')) {
         return parsed.pathname;
       }
-      return url;
     }
+    
+    // If it's already a relative path starting with /uploads/, return as-is
+    if (trimmedUrl.startsWith('/uploads/')) {
+      return trimmedUrl;
+    }
+    
+    // For any other format, return as-is (might be invalid, but let validation handle it)
+    return trimmedUrl;
   } catch (err) {
-    // Fall through to return original url
+    // If URL parsing fails, check if it looks like a relative path
+    if (trimmedUrl.startsWith('/uploads/')) {
+      return trimmedUrl;
+    }
+    // Otherwise, log and return null to avoid storing invalid URLs
+    logger.warn('Failed to normalize upload path', { url: trimmedUrl, error: err.message });
+    return null;
   }
-  return url;
 };
 
 const formatEventForResponse = (req, event) => {
@@ -247,7 +266,7 @@ const createEvent = async (req, res, next) => {
       registrationLink: registrationLink?.trim() || null,
       maxAttendees: maxAttendees ? Number(maxAttendees) : null,
       outcomes: normalizeOutcomes(outcomes),
-      heroImage: heroImage?.trim() || null,
+      heroImage: heroImage ? normalizeUploadPath(heroImage.trim()) : null,
       heroImageAlt: heroImageAlt?.trim() || null,
       status,
       isFeatured: Boolean(isFeatured),

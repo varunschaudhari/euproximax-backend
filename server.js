@@ -95,8 +95,46 @@ app.use(cors(corsOptions));
 // Initialize Passport middleware
 app.use(passport.initialize());
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve static files from uploads directory with CORS headers
+// Use the same CORS logic as the main app to ensure consistency
+app.use('/uploads', (req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Use the same CORS origin checking logic as corsOptions
+  let allowOrigin = false;
+  
+  // Allow requests with no origin (like direct image loads)
+  if (!origin) {
+    allowOrigin = true;
+  } else {
+    // In development, allow localhost origins
+    if (config.server.nodeEnv !== 'production') {
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        allowOrigin = true;
+      }
+    }
+    
+    // Check if origin is in allowed list (includes production URLs)
+    if (allowedOrigins.includes(origin)) {
+      allowOrigin = true;
+    }
+  }
+  
+  // Set CORS headers if origin is allowed
+  if (allowOrigin && origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else if (!origin) {
+    // For requests without origin, set wildcard (less secure but allows direct access)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
+  // Set Cross-Origin-Resource-Policy to allow cross-origin loading
+  // Using 'cross-origin' as images are served from a different origin than the frontend
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 // Health check route (before routes setup)
 app.get('/api/health', (req, res) => {
