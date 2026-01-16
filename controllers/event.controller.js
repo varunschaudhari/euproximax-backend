@@ -122,10 +122,9 @@ const publicListEvents = async (req, res, next) => {
     const statusFilter = req.query.status?.trim();
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
 
-    // Include both Published and Completed events by default
-    const filter = { status: { $in: ['Published', 'Completed'] } };
-    if (category && category !== 'all') filter.category = category;
-    if (featuredOnly) filter.isFeatured = true;
+    // Build filter based on statusFilter
+    let filter = {};
+    
     if (statusFilter === 'upcoming') {
       // Upcoming: Only Published events with startDate >= now (exclude Completed)
       filter.status = 'Published';
@@ -136,10 +135,29 @@ const publicListEvents = async (req, res, next) => {
         { status: 'Published', endDate: { $lt: new Date() } },
         { status: 'Completed' }
       ];
-      // Remove the status filter since we're using $or
-      delete filter.status;
+    } else {
+      // Default: Include both Published and Completed events
+      filter.status = { $in: ['Published', 'Completed'] };
     }
-    // If no statusFilter, show both Published and Completed (default filter already set)
+    
+    // Apply additional filters (these work with both $or and status filters)
+    if (category && category !== 'all') {
+      if (filter.$or) {
+        // If using $or, need to apply category to each condition
+        filter.$or = filter.$or.map(condition => ({ ...condition, category }));
+      } else {
+        filter.category = category;
+      }
+    }
+    
+    if (featuredOnly) {
+      if (filter.$or) {
+        // If using $or, need to apply isFeatured to each condition
+        filter.$or = filter.$or.map(condition => ({ ...condition, isFeatured: true }));
+      } else {
+        filter.isFeatured = true;
+      }
+    }
 
     const items = await Event.find(filter)
       .sort({ isFeatured: -1, startDate: 1, publishedAt: -1 })
