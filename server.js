@@ -47,8 +47,9 @@ const app = express();
 app.use(responsetime());
 app.use(compression());
 app.use(helmet());
-app.use(bodyParser.json({ limit: '20mb' }));
-app.use(bodyParser.urlencoded({ limit: '20mb', extended: true }));
+// Increase body size limits for file uploads (images, videos, etc.)
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // CORS Configuration - Support both website and admin frontends
 const allowedOrigins = [
