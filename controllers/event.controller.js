@@ -32,6 +32,10 @@ const normalizeUploadPath = (url) => {
       if (parsed.pathname && parsed.pathname.startsWith('/uploads/')) {
         return parsed.pathname;
       }
+      // If pathname doesn't start with /uploads/, still return it (might be valid)
+      if (parsed.pathname) {
+        return parsed.pathname;
+      }
     }
     
     // If it's already a relative path starting with /uploads/, return as-is
@@ -40,15 +44,17 @@ const normalizeUploadPath = (url) => {
     }
     
     // For any other format, return as-is (might be invalid, but let validation handle it)
+    // Don't return null - let the database/store handle invalid paths
     return trimmedUrl;
   } catch (err) {
     // If URL parsing fails, check if it looks like a relative path
     if (trimmedUrl.startsWith('/uploads/')) {
       return trimmedUrl;
     }
-    // Otherwise, log and return null to avoid storing invalid URLs
-    logger.warn('Failed to normalize upload path', { url: trimmedUrl, error: err.message });
-    return null;
+    // Log the error but don't return null - return the original URL
+    // Returning null was causing images to not be stored in production
+    logger.warn('Failed to normalize upload path, using original', { url: trimmedUrl, error: err.message });
+    return trimmedUrl;
   }
 };
 
@@ -225,6 +231,7 @@ const createEvent = async (req, res, next) => {
       registrationLink,
       maxAttendees,
       outcomes,
+      images,
       heroImage,
       heroImageAlt,
       status = 'Draft',
@@ -266,6 +273,21 @@ const createEvent = async (req, res, next) => {
       registrationLink: registrationLink?.trim() || null,
       maxAttendees: maxAttendees ? Number(maxAttendees) : null,
       outcomes: normalizeOutcomes(outcomes),
+      images: Array.isArray(images)
+        ? images
+            .map((img, index) => {
+              if (!img || !img.url) return null; // Skip invalid image objects
+              const normalizedUrl = normalizeUploadPath(img.url.trim());
+              if (!normalizedUrl) return null; // Skip if normalization failed
+              return {
+                url: normalizedUrl,
+                alt: (img.alt || '').trim(),
+                caption: (img.caption || '').trim(),
+                order: img.order !== undefined ? Number(img.order) : index,
+              };
+            })
+            .filter((img) => img !== null && img.url && img.url.trim()) // Only include valid images with URLs
+        : [],
       heroImage: heroImage ? normalizeUploadPath(heroImage.trim()) : null,
       heroImageAlt: heroImageAlt?.trim() || null,
       status,
@@ -356,6 +378,22 @@ const updateEvent = async (req, res, next) => {
 
     if (updates.outcomes !== undefined) {
       event.outcomes = normalizeOutcomes(updates.outcomes);
+    }
+
+    if (updates.images !== undefined && Array.isArray(updates.images)) {
+      event.images = updates.images
+        .map((img, index) => {
+          if (!img || !img.url) return null; // Skip invalid image objects
+          const normalizedUrl = normalizeUploadPath(img.url.trim());
+          if (!normalizedUrl) return null; // Skip if normalization failed
+          return {
+            url: normalizedUrl,
+            alt: (img.alt || '').trim(),
+            caption: (img.caption || '').trim(),
+            order: img.order !== undefined ? Number(img.order) : index,
+          };
+        })
+        .filter((img) => img !== null && img.url && img.url.trim()); // Only include valid images with URLs
     }
 
     if (updates.heroImage !== undefined) {
@@ -534,15 +572,17 @@ const updateEventImages = async (req, res, next) => {
     if (Array.isArray(images)) {
       event.images = images
         .map((img, index) => {
-          const normalizedUrl = normalizeUploadPath(img.url?.trim());
+          if (!img || !img.url) return null; // Skip invalid image objects
+          const normalizedUrl = normalizeUploadPath(img.url.trim());
+          if (!normalizedUrl) return null; // Skip if normalization failed
           return {
-            url: normalizedUrl || '',
-            alt: img.alt?.trim() || '',
-            caption: img.caption?.trim() || '',
+            url: normalizedUrl,
+            alt: (img.alt || '').trim(),
+            caption: (img.caption || '').trim(),
             order: img.order !== undefined ? Number(img.order) : index,
           };
         })
-        .filter((img) => img.url);
+        .filter((img) => img !== null && img.url && img.url.trim()); // Only include valid images with URLs
     }
 
     await event.save();
