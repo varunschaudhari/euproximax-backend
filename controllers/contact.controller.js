@@ -714,10 +714,57 @@ contact@euproximax.com`;
   }
 };
 
+const deleteContact = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return next(new AppError('Authentication required', 401));
+    }
+
+    const { id } = req.params;
+    const contact = await ContactMessage.findById(id);
+
+    if (!contact) {
+      return next(new AppError('Contact not found', 404));
+    }
+
+    // Delete associated file if exists
+    if (contact.file) {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '..', contact.file);
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          logger.info(`Deleted contact file: ${filePath}`);
+        }
+      } catch (fileError) {
+        logger.warn('Failed to delete contact file', { filePath, error: fileError.message });
+        // Continue with contact deletion even if file deletion fails
+      }
+    }
+
+    await contact.deleteOne();
+    logger.info(`Contact deleted: ${id}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Contact deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Delete contact error', {
+      error: error.message,
+      stack: error.stack,
+      contactId: req.params.id
+    });
+    next(error instanceof AppError ? error : new AppError('Unable to delete contact', 500));
+  }
+};
+
 module.exports = {
   createContact,
   listContacts,
   getContactById,
-  updateContact
+  updateContact,
+  deleteContact
 };
 
