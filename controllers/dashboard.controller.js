@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Contact = require('../models/ContactMessage');
-const Project = require('../models/Project');
+const Case = require('../models/Case');
 const BlogPost = require('../models/BlogPost');
 const Video = require('../models/Video');
 const Event = require('../models/Event');
@@ -48,7 +48,7 @@ const getDashboardStats = async (req, res, next) => {
       // Total counts
       User.countDocuments(),
       Contact.countDocuments(),
-      Project.countDocuments(),
+      Case.countDocuments(),
       BlogPost.countDocuments(),
       Video.countDocuments(),
       Event.countDocuments(),
@@ -57,19 +57,19 @@ const getDashboardStats = async (req, res, next) => {
       // This month counts
       User.countDocuments({ createdAt: { $gte: thisMonth } }),
       Contact.countDocuments({ createdAt: { $gte: thisMonth } }),
-      Project.countDocuments({ createdAt: { $gte: thisMonth } }),
+      Case.countDocuments({ createdAt: { $gte: thisMonth } }),
       BlogPost.countDocuments({ createdAt: { $gte: thisMonth } }),
 
       // Last 7 days counts
       Contact.countDocuments({ createdAt: { $gte: last7Days } }),
-      Project.countDocuments({ createdAt: { $gte: last7Days } }),
+      Case.countDocuments({ createdAt: { $gte: last7Days } }),
       BlogPost.countDocuments({ createdAt: { $gte: last7Days } }),
 
       // Status breakdowns
       Contact.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } },
       ]),
-      Project.aggregate([
+      Case.aggregate([
         { $group: { _id: '$status', count: { $sum: 1 } } },
       ]),
       BlogPost.aggregate([
@@ -82,11 +82,12 @@ const getDashboardStats = async (req, res, next) => {
         .limit(10)
         .select('name email subject status createdAt')
         .lean(),
-      Project.find()
+      Case.find()
         .sort({ createdAt: -1 })
         .limit(10)
-        .select('projectName clientName status createdAt')
-        .populate('projectManager', 'name')
+        .select('caseNumber inventionTitle status createdAt assignedPM clientId')
+        .populate('assignedPM', 'name')
+        .populate('clientId', 'name')
         .lean(),
       BlogPost.find()
         .sort({ createdAt: -1 })
@@ -104,7 +105,7 @@ const getDashboardStats = async (req, res, next) => {
     const contactsLastMonth = await Contact.countDocuments({
       createdAt: { $gte: lastMonth, $lt: thisMonth },
     });
-    const projectsLastMonth = await Project.countDocuments({
+    const projectsLastMonth = await Case.countDocuments({
       createdAt: { $gte: lastMonth, $lt: thisMonth },
     });
     const blogsLastMonth = await BlogPost.countDocuments({
@@ -137,7 +138,7 @@ const getDashboardStats = async (req, res, next) => {
         },
         { $sort: { _id: 1 } },
       ]),
-      Project.aggregate([
+      Case.aggregate([
         { $match: { createdAt: { $gte: last30Days } } },
         {
           $group: {
@@ -207,7 +208,15 @@ const getDashboardStats = async (req, res, next) => {
         },
         recent: {
           contacts: recentContacts,
-          projects: recentProjects,
+          // CRM cases mapped to the dashboard's existing "projects" shape.
+          projects: recentProjects.map((c) => ({
+            _id: c._id,
+            projectName: c.caseNumber,
+            clientName: c.clientId?.name || '',
+            status: c.status,
+            createdAt: c.createdAt,
+            projectManager: c.assignedPM ? { name: c.assignedPM.name } : undefined,
+          })),
           blogs: recentBlogs,
           events: recentEvents,
         },

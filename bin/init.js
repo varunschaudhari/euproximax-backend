@@ -3,6 +3,7 @@
 /**
  * Database seed script (Mongoose + app secrets)
  * - Inserts initial user, roles, permissions, and user-role mapping
+ * - Seeds the Patent CRM roles + ACL permission matrix (see scripts/seedCrmAcl.js)
  * - Generates and prints a JWT for the seeded user using current app secrets
  */
 
@@ -24,6 +25,43 @@ const UserRole = require('../models/UserRole');
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const seedData = require('./initdb.json');
+
+/**
+ * Patent CRM roles + ACL permission matrix (mirrors scripts/seedCrmAcl.js).
+ * Resource types: CASE, CRM_CLIENT, PAYMENT, VENDOR, DOCUMENT, DEADLINE,
+ * NOTIFICATION, REPORT. Frontend gating reads these (type, action) pairs.
+ */
+const CRM_ROLES = ['super admin', 'attorney', 'pm', 'accounts', 'client'];
+
+const ALL = ['CREATE', 'READ', 'UPDATE', 'DELETE'];
+const RU = ['READ', 'UPDATE'];
+const R = ['READ'];
+const CRU = ['CREATE', 'READ', 'UPDATE'];
+
+const CRM_MATRIX = {
+    'super admin': {
+        // Full CRM access
+        CASE: ALL, CRM_CLIENT: ALL, PAYMENT: ALL, VENDOR: ALL,
+        DOCUMENT: ALL, DEADLINE: ALL, NOTIFICATION: ALL, REPORT: R,
+        // Platform administration + content modules
+        USER: ALL, ROLES: ALL, CONTACT: ALL, BLOG: ALL, VIDEO: ALL,
+        EVENT: ALL, PARTNER: ALL, CHATBOT: ALL, CONSULTATION: ALL
+    },
+    attorney: {
+        CASE: RU, CRM_CLIENT: R, DOCUMENT: CRU, DEADLINE: RU, NOTIFICATION: R
+    },
+    pm: {
+        CASE: CRU, CRM_CLIENT: CRU, VENDOR: ALL, DOCUMENT: CRU,
+        DEADLINE: CRU, NOTIFICATION: R, CONTACT: RU
+    },
+    accounts: {
+        CASE: R, CRM_CLIENT: R, PAYMENT: ALL, VENDOR: RU, REPORT: R, NOTIFICATION: R
+    },
+    client: {
+        // portal-only; read of own records enforced server-side (utils/crmAccess.js)
+        CASE: R, DOCUMENT: R, PAYMENT: R
+    }
+};
 
 const normalizeSeedUsers = (users) => {
     if (Array.isArray(users) && users.length) {
@@ -131,6 +169,22 @@ const init = async () => {
                 await upsertPermission(role._id, permission.type, permission.action);
             }
             logger.info('🔐 Permissions ensured');
+        }
+
+        // Seed Patent CRM roles + ACL permission matrix
+        for (const rolename of CRM_ROLES) {
+            const role = await upsertRole(rolename);
+            roleMap[rolename] = role;
+
+            const perms = CRM_MATRIX[rolename] || {};
+            let ensured = 0;
+            for (const [type, actions] of Object.entries(perms)) {
+                for (const action of actions) {
+                    await upsertPermission(role._id, type, action);
+                    ensured += 1;
+                }
+            }
+            logger.info(`🗂️  CRM role "${rolename}" ensured (${ensured} permissions)`);
         }
 
         // Assign roles to each user (defaults to superuser)

@@ -1,5 +1,5 @@
 const ContactMessage = require('../models/ContactMessage');
-const Project = require('../models/Project');
+const Case = require('../models/Case');
 const User = require('../models/User');
 const Role = require('../models/Role');
 const UserRole = require('../models/UserRole');
@@ -339,44 +339,17 @@ const getContactById = async (req, res, next) => {
       return next(new AppError('Contact not found', 404));
     }
 
-    const project = await Project.findOne({ enquiryId: contact._id })
-      .select('_id projectName status currentStage createdAt quote.assignedApprover quote.assignedApproverName quote.assignedApproverAt quote.internalApprovalDate')
-      .populate('quote.assignedApprover', 'name email')
+    // Linked CRM case (intake pipeline), if this enquiry has been converted.
+    const linkedCase = await Case.findOne({ enquiryId: contact._id })
+      .select('_id caseNumber status track phase')
       .lean();
-
-    const projectSummary = project
-      ? {
-        _id: project._id,
-        projectName: project.projectName,
-        status: project.status,
-        currentStage: project.currentStage,
-        createdAt: project.createdAt,
-        assignedApprover: project.quote?.assignedApprover
-          ? (typeof project.quote.assignedApprover === 'object'
-            ? project.quote.assignedApprover._id
-            : project.quote.assignedApprover)
-          : null,
-        assignedApproverName:
-          project.quote?.assignedApprover
-            ? (typeof project.quote.assignedApprover === 'object'
-              ? project.quote.assignedApprover.name
-              : project.quote.assignedApproverName || null)
-            : null,
-        assignedApproverEmail:
-          project.quote?.assignedApprover && typeof project.quote.assignedApprover === 'object'
-            ? project.quote.assignedApprover.email
-            : null,
-        assignedApproverAt: project.quote?.assignedApproverAt || null,
-        internalApprovalDate: project.quote?.internalApprovalDate || null
-      }
-      : null;
 
     res.status(200).json({
       success: true,
       message: 'Contact fetched successfully',
       data: {
         ...contact,
-        project: projectSummary
+        crmCase: linkedCase || null
       }
     });
   } catch (error) {

@@ -30,7 +30,9 @@ const routes = require('./routes');
 connectDB().then(async () => {
   logger.info('Connected to MongoDB');
   try {
-    // Add any initialization logic here if needed
+    // Start the Patent CRM deadline engine (escalating reminders + missed-deadline sweep).
+    const { startDeadlineScheduler } = require('./utils/deadlineEngine');
+    startDeadlineScheduler();
     logger.debug('Database initialization complete');
   } catch (err) {
     logger.error('Database initialization error:', err);

@@ -6,7 +6,6 @@ const authRoutes = require('./auth');
 const userRoutes = require('./user');
 const aclRoutes = require('./acl');
 const contactRoutes = require('./contact');
-const projectRoutes = require('./project');
 const blogRoutes = require('./blog');
 const videoRoutes = require('./video');
 const eventRoutes = require('./event');
@@ -14,6 +13,16 @@ const partnerRoutes = require('./partner');
 const dashboardRoutes = require('./dashboard');
 const chatbotRoutes = require('./chatbot');
 const consultationRoutes = require('./consultation');
+const caseRoutes = require('./case');
+const crmClientRoutes = require('./crmClient');
+const paymentRoutes = require('./payment');
+const vendorRoutes = require('./vendor');
+const reportsRoutes = require('./reports');
+const deadlineRoutes = require('./deadline');
+const notificationRoutes = require('./notification');
+const portalRoutes = require('./portal');
+const documentRoutes = require('./document');
+const crmDashboardRoutes = require('./crmDashboard');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -41,6 +50,8 @@ const authRouteFilter = (req, res, next) => {
     const publicRoutes = [
         { path: '/api/v1/auth/register' },
         { path: '/api/v1/auth/login' },
+        { path: '/api/v1/auth/forgot-password', methods: ['POST'] },
+        { path: '/api/v1/auth/reset-password', methods: ['POST'] },
         { path: '/api/health' },
         { path: '/api/v1/health' },
         { path: '/api/v1/contact', methods: ['POST'] },
@@ -51,7 +62,9 @@ const authRouteFilter = (req, res, next) => {
         { path: '/api/v1/partner', methods: ['GET'] },
         { path: '/api/v1/consultation/slots', methods: ['GET'] },
         { path: '/api/v1/consultation/book', methods: ['POST'] },
-        { path: '/api/v1/consultation/bookings', methods: ['GET'] }
+        { path: '/api/v1/consultation/bookings', methods: ['GET'] },
+        { path: '/api/v1/payments/webhook', methods: ['POST'] },
+        { path: '/api/v1/cases/intake', methods: ['POST'] }
     ];
 
     const isPublicRoute = isChatbotPublicRoute || publicRoutes.some(route => {
@@ -90,12 +103,23 @@ const routes = (app) => {
     // Protected routes (require authentication)
     app.use('/api/v1/user', userRoutes);
     app.use('/api/v1/acl', aclRoutes);
-    app.use('/api/v1/project', projectRoutes);
     app.use('/api/v1/blog', blogRoutes);
     app.use('/api/v1/video', videoRoutes);
     app.use('/api/v1/event', eventRoutes);
     app.use('/api/v1/partner', partnerRoutes);
     app.use('/api/v1/dashboard', dashboardRoutes);
+
+    // Patent CRM
+    app.use('/api/v1/cases', caseRoutes);
+    app.use('/api/v1/crm-clients', crmClientRoutes);
+    app.use('/api/v1/payments', paymentRoutes);
+    app.use('/api/v1/vendors', vendorRoutes);
+    app.use('/api/v1/reports', reportsRoutes);
+    app.use('/api/v1/deadlines', deadlineRoutes);
+    app.use('/api/v1/notifications', notificationRoutes);
+    app.use('/api/v1/portal', portalRoutes);
+    app.use('/api/v1/documents', documentRoutes);
+    app.use('/api/v1/crm-dashboard', crmDashboardRoutes);
 
     logger.debug('App routes setup complete.');
 };

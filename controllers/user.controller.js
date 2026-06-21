@@ -136,11 +136,18 @@ const login = async (req, res, next) => {
             return next(new AppError('Failed to generate authentication token', 500));
         }
 
+        // Include role names so the frontend can route (portal vs admin).
+        const userRoleLinks = await UserRole.find({ userId: user._id }).lean();
+        const roleDocs = await Role.find({ _id: { $in: userRoleLinks.map((ur) => ur.roleId) } })
+            .select('rolename')
+            .lean();
+        const roleNames = roleDocs.map((r) => r.rolename);
+
         res.status(200).json({
             success: true,
             message: 'Login successful',
             data: {
-                user: user.toJSON(),
+                user: { ...user.toJSON(), roles: roleNames },
                 token
             }
         });
@@ -525,13 +532,117 @@ const deleteUser = async (req, res, next) => {
     }
 };
 
+/**
+ * POST /api/v1/auth/forgot-password
+ * Emails a password-set/reset link. Always returns success (no account enumeration).
+ */
+const forgotPassword = async (req, res, next) => {
+    try {
+        const crypto = require('crypto');
+        const { sendMail } = require('../utils/mailer');
+        const { email } = req.body;
+        if (!email) return next(new AppError('Email is required', 400));
+
+        const user = await User.findOne(withActiveFilter({ email: email.toLowerCase() }));
+        if (user) {
+            const rawToken = crypto.randomBytes(32).toString('hex');
+            const hashed = crypto.createHash('sha256').update(rawToken).digest('hex');
+            user.resetPasswordToken = hashed;
+            user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+            await user.save({ validateBeforeSave: false });
+
+            const base = config.adminPortal.url || '';
+            const link = `${base}/reset-password?token=${rawToken}`;
+            try {
+                await sendMail({
+                    to: user.email,
+                    subject: 'Set your Patent CRM password',
+                    html: `<p>Hi ${user.name || ''},</p><p>Use the link below to set your password. It expires in 1 hour.</p><p><a href="${link}">${link}</a></p>`,
+                    text: `Set your password: ${link}`
+                });
+            } catch (mailErr) {
+                logger.error('Failed to send reset email', { error: mailErr.message });
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'If that email exists, a reset link has been sent.'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * POST /api/v1/auth/reset-password
+ * Body: { token, password }
+ */
+const resetPassword = async (req, res, next) => {
+    try {
+        const crypto = require('crypto');
+        const { token, password } = req.body;
+        if (!token || !password) return next(new AppError('Token and password are required', 400));
+        if (String(password).length < 6) return next(new AppError('Password must be at least 6 characters', 400));
+
+        const hashed = crypto.createHash('sha256').update(token).digest('hex');
+        const user = await User.findOne({
+            resetPasswordToken: hashed,
+            resetPasswordExpires: { $gt: new Date() }
+        }).select('+resetPasswordToken +resetPasswordExpires');
+
+        if (!user) return next(new AppError('Invalid or expired reset token', 400));
+
+        user.password = password; // hashed by pre-save hook
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+
+        logger.info(`Password reset for user ${user._id}`);
+        res.status(200).json({ success: true, message: 'Password set successfully. You can now log in.' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * POST /api/v1/auth/refresh — issue a fresh access token (sliding session).
+ * Requires a currently-valid token (JWT middleware sets req.user).
+ */
+const refreshToken = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user._id || req.user.id);
+        if (!user) return next(new AppError('User not found', 404));
+        const token = jwtAuth.generateToken(user);
+        res.status(200).json({ success: true, message: 'Token refreshed', data: { token } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * POST /api/v1/auth/logout — bumps logoutNum (stateless clients clear locally).
+ */
+const logout = async (req, res, next) => {
+    try {
+        await User.findByIdAndUpdate(req.user._id || req.user.id, { $inc: { logoutNum: 1 } });
+        res.status(200).json({ success: true, message: 'Logged out' });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     register,
     login,
+    refreshToken,
+    logout,
     getMe,
     getUsers,
     getUserById,
     updateUser,
     deleteUser,
-    createUser
+    createUser,
+    forgotPassword,
+    resetPassword
 };

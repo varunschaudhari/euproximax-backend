@@ -56,14 +56,25 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: [500, 'Remarks cannot exceed 500 characters']
+    },
+    // Password reset (used by the portal "set your password" flow)
+    resetPasswordToken: {
+      type: String,
+      select: false
+    },
+    resetPasswordExpires: {
+      type: Date,
+      select: false
     }
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt
     toJSON: {
       transform: function (doc, ret) {
-        // Remove password from JSON output
+        // Remove sensitive fields from JSON output
         delete ret.password;
+        delete ret.resetPasswordToken;
+        delete ret.resetPasswordExpires;
         return ret;
       }
     }

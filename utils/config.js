@@ -91,5 +91,12 @@ module.exports = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
+  },
+
+  // WhatsApp (WATI) — Patent CRM notifications. Optional; when unset, WhatsApp
+  // sends are skipped (email still works).
+  whatsapp: {
+    apiUrl: process.env.WATI_API_URL || '',
+    apiToken: process.env.WATI_API_TOKEN || ''
   }
 };

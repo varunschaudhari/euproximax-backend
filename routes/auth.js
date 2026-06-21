@@ -68,5 +68,30 @@ router.post(
   userController.login
 );
 
+// POST /api/auth/refresh - Issue a fresh token (requires valid token)
+router.post('/refresh', userController.refreshToken);
+
+// POST /api/auth/logout - Logout (requires valid token)
+router.post('/logout', userController.logout);
+
+// POST /api/auth/forgot-password - Email a password reset/set link
+router.post(
+  '/forgot-password',
+  [body('email').trim().isEmail().withMessage('Please provide a valid email address').normalizeEmail()],
+  handleValidationErrors,
+  userController.forgotPassword
+);
+
+// POST /api/auth/reset-password - Set a new password using a reset token
+router.post(
+  '/reset-password',
+  [
+    body('token').notEmpty().withMessage('Token is required'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+  ],
+  handleValidationErrors,
+  userController.resetPassword
+);
+
 module.exports = router;
 
