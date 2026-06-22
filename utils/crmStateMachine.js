@@ -149,14 +149,28 @@ const ALL_STATUSES = Object.keys(VALID_TRANSITIONS);
 
 const TERMINAL_STATUSES = ALL_STATUSES.filter((s) => VALID_TRANSITIONS[s].length === 0);
 
-/** Returns true if `to` is a valid next status from `from`. */
-const isValidTransition = (from, to) => {
-  const allowed = VALID_TRANSITIONS[from] || [];
-  return allowed.includes(to);
+/**
+ * Track-restricted transitions: from this status, a target is only valid for a
+ * specific track. PRIOR_ART_CONFIRMED branches by track — A goes to prototype,
+ * B goes straight to NDA.
+ */
+const TRACK_RESTRICTED = {
+  PRIOR_ART_CONFIRMED: { PROTOTYPE_INVOICE_SENT: 'A', NDA_SENT: 'B' }
 };
 
-/** Returns the array of allowed next statuses for a given status. */
-const getAllowedTransitions = (from) => VALID_TRANSITIONS[from] || [];
+/**
+ * Returns the array of allowed next statuses for a given status, filtered by
+ * track when the branch is track-specific.
+ */
+const getAllowedTransitions = (from, track) => {
+  const list = VALID_TRANSITIONS[from] || [];
+  const restrictions = TRACK_RESTRICTED[from];
+  if (!restrictions || !track) return list;
+  return list.filter((to) => !restrictions[to] || restrictions[to] === track);
+};
+
+/** Returns true if `to` is a valid next status from `from` (track-aware). */
+const isValidTransition = (from, to, track) => getAllowedTransitions(from, track).includes(to);
 
 /** Returns the phase number (1-9) for a status, or null for terminal states. */
 const getPhaseForStatus = (status) => STATUS_PHASE[status] ?? null;

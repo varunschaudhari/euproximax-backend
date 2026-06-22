@@ -50,7 +50,9 @@ app.use(responsetime());
 app.use(compression());
 app.use(helmet());
 // Increase body size limits for file uploads (images, videos, etc.)
-app.use(bodyParser.json({ limit: '50mb' }));
+// Stash the raw body so webhook signature verification (Razorpay) can hash the
+// exact received bytes rather than a re-serialised object.
+app.use(bodyParser.json({ limit: '50mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // CORS Configuration - Support both website and admin frontends
@@ -97,6 +99,13 @@ app.use(cors(corsOptions));
 
 // Initialize Passport middleware
 app.use(passport.initialize());
+
+// Case documents are confidential — they are NEVER served as public static
+// files. Access only via the authenticated download endpoints
+// (/api/v1/documents/:id/download and the portal equivalent).
+app.use('/uploads/documents', (req, res) => {
+  res.status(403).json({ success: false, message: 'Forbidden — use the document download API' });
+});
 
 // Serve static files from uploads directory with CORS headers
 // Use the same CORS logic as the main app to ensure consistency

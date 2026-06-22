@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param } = require('express-validator');
 const vendorController = require('../controllers/vendor.controller');
 const handleValidationErrors = require('../middleware/validate');
+const requirePermission = require('../middleware/requirePermission');
 
 const createVendorValidation = [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 120 }),
@@ -29,16 +30,16 @@ const engageValidation = [
 const idParam = [param('id').isMongoId().withMessage('Invalid ID')];
 
 // Specific routes first so they aren't captured by /:id.
-router.post('/engage', engageValidation, handleValidationErrors, vendorController.engageVendor);
-router.get('/engagements/:caseId', param('caseId').isMongoId(), handleValidationErrors, vendorController.listEngagementsByCase);
-router.patch('/engagements/:id/deliver', idParam, handleValidationErrors, vendorController.markDelivered);
-router.patch('/engagements/:id/approve', idParam, handleValidationErrors, vendorController.approveEngagement);
-router.post('/engagements/:id/payment', idParam, handleValidationErrors, vendorController.raiseVendorPayment);
-router.patch('/engagements/:id/paid', idParam, handleValidationErrors, vendorController.markVendorPaid);
+router.post('/engage', requirePermission('VENDOR', 'CREATE'), engageValidation, handleValidationErrors, vendorController.engageVendor);
+router.get('/engagements/:caseId', requirePermission('VENDOR', 'READ'), param('caseId').isMongoId(), handleValidationErrors, vendorController.listEngagementsByCase);
+router.patch('/engagements/:id/deliver', requirePermission('VENDOR', 'UPDATE'), idParam, handleValidationErrors, vendorController.markDelivered);
+router.patch('/engagements/:id/approve', requirePermission('VENDOR', 'UPDATE'), idParam, handleValidationErrors, vendorController.approveEngagement);
+router.post('/engagements/:id/payment', requirePermission('VENDOR', 'UPDATE'), idParam, handleValidationErrors, vendorController.raiseVendorPayment);
+router.patch('/engagements/:id/paid', requirePermission('VENDOR', 'UPDATE'), idParam, handleValidationErrors, vendorController.markVendorPaid);
 
-router.get('/', vendorController.listVendors);
-router.post('/', createVendorValidation, handleValidationErrors, vendorController.createVendor);
-router.get('/:id', idParam, handleValidationErrors, vendorController.getVendorById);
-router.patch('/:id', idParam, handleValidationErrors, vendorController.updateVendor);
+router.get('/', requirePermission('VENDOR', 'READ'), vendorController.listVendors);
+router.post('/', requirePermission('VENDOR', 'CREATE'), createVendorValidation, handleValidationErrors, vendorController.createVendor);
+router.get('/:id', requirePermission('VENDOR', 'READ'), idParam, handleValidationErrors, vendorController.getVendorById);
+router.patch('/:id', requirePermission('VENDOR', 'UPDATE'), idParam, handleValidationErrors, vendorController.updateVendor);
 
 module.exports = router;

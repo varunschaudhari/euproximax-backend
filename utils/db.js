@@ -7,11 +7,17 @@ const config = require('./config');
  */
 const connectDB = async () => {
   try {
-    const mongoURI = config.database.uri;
+    let mongoURI = config.database.uri;
 
     if (!mongoURI) {
       logger.error('MongoDB connection string is missing. Please set MONGODB_URI in your .env file');
       process.exit(1);
+    }
+
+    // Force IPv4 to avoid `localhost`→::1 resolving to a different mongod than the
+    // seed script (bin/init.js) writes to. Keeps the server and seed on one DB.
+    if (mongoURI.includes('localhost')) {
+      mongoURI = mongoURI.replace('localhost', '127.0.0.1');
     }
 
     logger.info(`Attempting to connect to MongoDB: ${mongoURI.replace(/\/\/.*@/, '//***:***@')}`);

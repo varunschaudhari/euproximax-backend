@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param } = require('express-validator');
 const clientController = require('../controllers/crmClient.controller');
 const handleValidationErrors = require('../middleware/validate');
+const requirePermission = require('../middleware/requirePermission');
 
 const createValidation = [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }),
@@ -25,11 +26,11 @@ const updateValidation = [
 
 const idParam = [param('id').isMongoId().withMessage('Invalid client ID')];
 
-router.get('/', clientController.listClients);
-router.post('/', createValidation, handleValidationErrors, clientController.createClient);
-router.get('/:id', idParam, handleValidationErrors, clientController.getClientById);
-router.patch('/:id', updateValidation, handleValidationErrors, clientController.updateClient);
-router.get('/:id/cases', idParam, handleValidationErrors, clientController.getClientCases);
-router.post('/:id/portal-access', idParam, handleValidationErrors, clientController.grantPortalAccess);
+router.get('/', requirePermission('CRM_CLIENT', 'READ'), clientController.listClients);
+router.post('/', requirePermission('CRM_CLIENT', 'CREATE'), createValidation, handleValidationErrors, clientController.createClient);
+router.get('/:id', requirePermission('CRM_CLIENT', 'READ'), idParam, handleValidationErrors, clientController.getClientById);
+router.patch('/:id', requirePermission('CRM_CLIENT', 'UPDATE'), updateValidation, handleValidationErrors, clientController.updateClient);
+router.get('/:id/cases', requirePermission('CRM_CLIENT', 'READ'), idParam, handleValidationErrors, clientController.getClientCases);
+router.post('/:id/portal-access', requirePermission('CRM_CLIENT', 'UPDATE'), idParam, handleValidationErrors, clientController.grantPortalAccess);
 
 module.exports = router;

@@ -23,6 +23,7 @@ const notificationRoutes = require('./notification');
 const portalRoutes = require('./portal');
 const documentRoutes = require('./document');
 const crmDashboardRoutes = require('./crmDashboard');
+const quoteRoutes = require('./quote');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -120,6 +121,7 @@ const routes = (app) => {
     app.use('/api/v1/portal', portalRoutes);
     app.use('/api/v1/documents', documentRoutes);
     app.use('/api/v1/crm-dashboard', crmDashboardRoutes);
+    app.use('/api/v1/quotes', quoteRoutes);
 
     logger.debug('App routes setup complete.');
 };

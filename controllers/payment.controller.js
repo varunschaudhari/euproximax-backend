@@ -6,6 +6,35 @@ const Client = require('../models/Client');
 const razorpay = require('../utils/razorpay');
 const { notifyPaymentEvent } = require('../utils/notify');
 const { generateInvoicePdf } = require('../utils/invoicePdf');
+const { applyTransition } = require('../utils/caseWorkflow');
+
+// When a client payment is confirmed, advance the case past the matching gate
+// (only if it's sitting at the corresponding *_INVOICE_SENT status).
+const PAYMENT_ADVANCE = {
+  prior_art_search: { from: 'PRIOR_ART_INVOICE_SENT', to: 'PRIOR_ART_PAYMENT_RECEIVED' },
+  prototype: { from: 'PROTOTYPE_INVOICE_SENT', to: 'PROTOTYPE_PAYMENT_RECEIVED' },
+  drafting: { from: 'DRAFTING_INVOICE_SENT', to: 'DRAFTING_PAYMENT_RECEIVED' },
+  filing_govt: { from: 'FILING_INVOICE_SENT', to: 'FILING_PAYMENT_RECEIVED' },
+  filing_professional: { from: 'FILING_INVOICE_SENT', to: 'FILING_PAYMENT_RECEIVED' },
+  renewal_govt: { from: 'RENEWAL_INVOICE_SENT', to: 'RENEWAL_PAYMENT_RECEIVED' },
+  renewal_management: { from: 'RENEWAL_INVOICE_SENT', to: 'RENEWAL_PAYMENT_RECEIVED' }
+};
+
+const autoAdvanceOnPayment = async (payment, userId) => {
+  try {
+    const map = PAYMENT_ADVANCE[payment.type];
+    if (!map) return;
+    const caseDoc = await Case.findById(payment.caseId);
+    if (!caseDoc || caseDoc.isClosed || caseDoc.status !== map.from) return;
+    await applyTransition(caseDoc, map.to, {
+      userId,
+      note: `Auto-advanced on confirmed ${payment.milestoneLabel || payment.type} payment`
+    });
+    logger.info(`Case ${caseDoc.caseNumber} auto-advanced ${map.from} -> ${map.to} on payment`);
+  } catch (err) {
+    logger.error('Auto-advance on payment failed', { error: err.message });
+  }
+};
 
 const INVOICE_PREFIX = process.env.INVOICE_PREFIX || 'INV';
 
@@ -153,7 +182,9 @@ const createRazorpayOrder = async (req, res, next) => {
 const razorpayWebhook = async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    const rawBody = JSON.stringify(req.body);
+    // Use the exact received bytes (stashed by body-parser) for HMAC; fall back
+    // to a re-serialised body only if the raw buffer is unavailable.
+    const rawBody = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
 
     if (!razorpay.verifyWebhookSignature(rawBody, signature)) {
       logger.warn('Razorpay webhook signature verification failed');
@@ -172,6 +203,7 @@ const razorpayWebhook = async (req, res) => {
         payment.razorpayPaymentId = entity.id;
         await payment.save();
         notifyPaymentEvent(payment, 'received').catch(() => {});
+        await autoAdvanceOnPayment(payment);
         logger.info(`Payment ${payment._id} marked paid via Razorpay webhook`);
       }
     }
@@ -202,6 +234,7 @@ const confirmPayment = async (req, res, next) => {
     await payment.save();
 
     notifyPaymentEvent(payment, 'received').catch(() => {});
+    await autoAdvanceOnPayment(payment, req.user._id);
     logger.info(`Payment ${payment._id} manually confirmed by ${req.user?.name || 'unknown'}`);
     res.status(200).json({ success: true, message: 'Payment confirmed', data: payment });
   } catch (error) {

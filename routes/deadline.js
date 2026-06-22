@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param } = require('express-validator');
 const deadlineController = require('../controllers/deadline.controller');
 const handleValidationErrors = require('../middleware/validate');
+const requirePermission = require('../middleware/requirePermission');
 
 const createValidation = [
   body('caseId').isMongoId().withMessage('Valid case ID is required'),
@@ -15,10 +16,10 @@ const createValidation = [
 
 const idParam = [param('id').isMongoId().withMessage('Invalid deadline ID')];
 
-router.get('/upcoming', deadlineController.listUpcoming);
-router.get('/overdue', deadlineController.listOverdue);
-router.get('/case/:caseId', param('caseId').isMongoId(), handleValidationErrors, deadlineController.listByCase);
-router.post('/', createValidation, handleValidationErrors, deadlineController.createDeadline);
-router.patch('/:id/complete', idParam, handleValidationErrors, deadlineController.completeDeadline);
+router.get('/upcoming', requirePermission('DEADLINE', 'READ'), deadlineController.listUpcoming);
+router.get('/overdue', requirePermission('DEADLINE', 'READ'), deadlineController.listOverdue);
+router.get('/case/:caseId', requirePermission('DEADLINE', 'READ'), param('caseId').isMongoId(), handleValidationErrors, deadlineController.listByCase);
+router.post('/', requirePermission('DEADLINE', 'CREATE'), createValidation, handleValidationErrors, deadlineController.createDeadline);
+router.patch('/:id/complete', requirePermission('DEADLINE', 'UPDATE'), idParam, handleValidationErrors, deadlineController.completeDeadline);
 
 module.exports = router;

@@ -54,6 +54,22 @@ const CaseSchema = new Schema(
     strategyLockedAt: { type: Date },
     strategyLockedBy: { type: Schema.Types.ObjectId, ref: 'User' },
 
+    // Filing readiness checklist (Phase 6) — must all pass before FILED
+    filingChecklist: [
+      {
+        key: { type: String, required: true },
+        label: { type: String, required: true },
+        done: { type: Boolean, default: false },
+        doneAt: { type: Date },
+        doneBy: { type: Schema.Types.ObjectId, ref: 'User' }
+      }
+    ],
+
+    // Drafting revisions (Phase 5)
+    agreedRevisions: { type: Number, default: 2 },
+    revisionCount: { type: Number, default: 0 },
+    scopeChangeFlagged: { type: Boolean, default: false },
+
     // Flags
     isOnHold: { type: Boolean, default: false },
     holdReason: { type: String },

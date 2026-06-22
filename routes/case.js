@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param } = require('express-validator');
 const caseController = require('../controllers/case.controller');
 const handleValidationErrors = require('../middleware/validate');
+const requirePermission = require('../middleware/requirePermission');
 
 const createCaseValidation = [
   body('track').isIn(['A', 'B']).withMessage('Track must be A or B'),
@@ -60,8 +61,8 @@ const detailsValidation = [
   body('validUntil').optional({ nullable: true, checkFalsy: true }).isISO8601()
 ];
 
-router.post('/', createCaseValidation, handleValidationErrors, caseController.createCase);
-router.post('/from-enquiry', fromEnquiryValidation, handleValidationErrors, caseController.createCaseFromEnquiry);
+router.post('/', requirePermission('CASE', 'CREATE'), createCaseValidation, handleValidationErrors, caseController.createCase);
+router.post('/from-enquiry', requirePermission('CASE', 'CREATE'), fromEnquiryValidation, handleValidationErrors, caseController.createCaseFromEnquiry);
 router.post('/intake', [
   body('clientName').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }),
   body('email').isEmail().withMessage('Valid email is required'),
@@ -72,18 +73,21 @@ router.post('/intake', [
   body('inventionSummary').optional().trim().isLength({ max: 5000 }),
   body('jurisdiction').optional().isArray()
 ], handleValidationErrors, caseController.publicIntake);
-router.get('/', caseController.listCases);
-router.get('/:id', idParam, handleValidationErrors, caseController.getCaseById);
-router.patch('/:id', detailsValidation, handleValidationErrors, caseController.updateCaseDetails);
-router.get('/:id/timeline', idParam, handleValidationErrors, caseController.getTimeline);
-router.get('/:id/activity', idParam, handleValidationErrors, caseController.getActivity);
-router.get('/:id/notes', idParam, handleValidationErrors, caseController.listNotes);
-router.post('/:id/notes', [...idParam, body('body').trim().notEmpty().withMessage('Note body is required').isLength({ max: 5000 })], handleValidationErrors, caseController.createNote);
-router.delete('/:id/notes/:noteId', [...idParam, param('noteId').isMongoId().withMessage('Invalid note ID')], handleValidationErrors, caseController.deleteNote);
-router.patch('/:id/status', statusValidation, handleValidationErrors, caseController.updateStatus);
-router.patch('/:id/assign', assignValidation, handleValidationErrors, caseController.assignCase);
-router.patch('/:id/hold', idParam, handleValidationErrors, caseController.holdCase);
-router.patch('/:id/strategy', idParam, handleValidationErrors, caseController.lockStrategy);
-router.patch('/:id/track', trackValidation, handleValidationErrors, caseController.changeTrack);
+router.get('/', requirePermission('CASE', 'READ'), caseController.listCases);
+router.get('/attention', requirePermission('CASE', 'READ'), caseController.attentionList);
+router.get('/:id', requirePermission('CASE', 'READ'), idParam, handleValidationErrors, caseController.getCaseById);
+router.patch('/:id', requirePermission('CASE', 'UPDATE'), detailsValidation, handleValidationErrors, caseController.updateCaseDetails);
+router.get('/:id/timeline', requirePermission('CASE', 'READ'), idParam, handleValidationErrors, caseController.getTimeline);
+router.get('/:id/activity', requirePermission('CASE', 'READ'), idParam, handleValidationErrors, caseController.getActivity);
+router.get('/:id/notes', requirePermission('CASE', 'READ'), idParam, handleValidationErrors, caseController.listNotes);
+router.post('/:id/notes', requirePermission('CASE', 'UPDATE'), [...idParam, body('body').trim().notEmpty().withMessage('Note body is required').isLength({ max: 5000 })], handleValidationErrors, caseController.createNote);
+router.delete('/:id/notes/:noteId', requirePermission('CASE', 'UPDATE'), [...idParam, param('noteId').isMongoId().withMessage('Invalid note ID')], handleValidationErrors, caseController.deleteNote);
+router.patch('/:id/status', requirePermission('CASE', 'UPDATE'), statusValidation, handleValidationErrors, caseController.updateStatus);
+router.patch('/:id/assign', requirePermission('CASE', 'UPDATE'), assignValidation, handleValidationErrors, caseController.assignCase);
+router.patch('/:id/hold', requirePermission('CASE', 'UPDATE'), idParam, handleValidationErrors, caseController.holdCase);
+router.get('/:id/checklist', requirePermission('CASE', 'READ'), idParam, handleValidationErrors, caseController.getChecklist);
+router.patch('/:id/checklist', requirePermission('CASE', 'UPDATE'), [...idParam, body('key').isString().notEmpty(), body('done').isBoolean()], handleValidationErrors, caseController.updateChecklistItem);
+router.patch('/:id/strategy', requirePermission('CASE', 'UPDATE'), idParam, handleValidationErrors, caseController.lockStrategy);
+router.patch('/:id/track', requirePermission('CASE', 'UPDATE'), trackValidation, handleValidationErrors, caseController.changeTrack);
 
 module.exports = router;

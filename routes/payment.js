@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param } = require('express-validator');
 const paymentController = require('../controllers/payment.controller');
 const handleValidationErrors = require('../middleware/validate');
+const requirePermission = require('../middleware/requirePermission');
 
 const PAYMENT_TYPES = [
   'prior_art_search', 'prototype', 'drafting', 'filing_govt', 'filing_professional',
@@ -26,13 +27,13 @@ const idParam = [param('id').isMongoId().withMessage('Invalid payment ID')];
 // Note: POST /webhook is registered as a PUBLIC route in routes/index.js (no JWT).
 router.post('/webhook', paymentController.razorpayWebhook);
 
-router.get('/overdue', paymentController.listOverdue);
-router.get('/case/:caseId', param('caseId').isMongoId(), handleValidationErrors, paymentController.listByCase);
-router.post('/', createValidation, handleValidationErrors, paymentController.createPayment);
-router.post('/plan', paymentController.createPlan);
-router.patch('/:id/send', idParam, handleValidationErrors, paymentController.sendInvoice);
-router.post('/:id/razorpay', idParam, handleValidationErrors, paymentController.createRazorpayOrder);
-router.patch('/:id/confirm', idParam, handleValidationErrors, paymentController.confirmPayment);
-router.patch('/:id/waive', idParam, handleValidationErrors, paymentController.waivePayment);
+router.get('/overdue', requirePermission('PAYMENT', 'READ'), paymentController.listOverdue);
+router.get('/case/:caseId', requirePermission('PAYMENT', 'READ'), param('caseId').isMongoId(), handleValidationErrors, paymentController.listByCase);
+router.post('/', requirePermission('PAYMENT', 'CREATE'), createValidation, handleValidationErrors, paymentController.createPayment);
+router.post('/plan', requirePermission('PAYMENT', 'CREATE'), paymentController.createPlan);
+router.patch('/:id/send', requirePermission('PAYMENT', 'UPDATE'), idParam, handleValidationErrors, paymentController.sendInvoice);
+router.post('/:id/razorpay', requirePermission('PAYMENT', 'UPDATE'), idParam, handleValidationErrors, paymentController.createRazorpayOrder);
+router.patch('/:id/confirm', requirePermission('PAYMENT', 'UPDATE'), idParam, handleValidationErrors, paymentController.confirmPayment);
+router.patch('/:id/waive', requirePermission('PAYMENT', 'DELETE'), idParam, handleValidationErrors, paymentController.waivePayment);
 
 module.exports = router;

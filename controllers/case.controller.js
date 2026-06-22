@@ -14,8 +14,11 @@ const {
   INITIAL_STATUS
 } = require('../utils/crmStateMachine');
 const { getUserRoleNames, buildCaseScopeFilter } = require('../utils/crmAccess');
-const { createFilingDeadlines, createFerResponseDeadline, createRenewalSchedule } = require('../utils/deadlineEngine');
+const { checkStatusGate, STATUS_CHANGE_ROLES, GATE_OVERRIDE_ROLES } = require('../utils/crmGates');
 const { notifyCaseStatusChange } = require('../utils/notify');
+const { applyTransition } = require('../utils/caseWorkflow');
+const { getNextAction } = require('../utils/caseNextAction');
+const { getSla } = require('../utils/caseSla');
 
 const CASE_PREFIX = process.env.CASE_PREFIX || 'PAT';
 
@@ -335,6 +338,8 @@ const listCases = async (req, res, next) => {
         c.nextDeadline = d
           ? { label: d.label, type: d.type, statutoryDeadline: d.statutoryDeadline }
           : null;
+        c.nextAction = getNextAction(c.status, c.track);
+        c.sla = getSla(c);
       }
     }
 
@@ -362,7 +367,8 @@ const getCaseById = async (req, res, next) => {
     if (!caseDoc) return next(new AppError('Case not found', 404));
 
     const data = caseDoc.toObject();
-    data.allowedTransitions = getAllowedTransitions(caseDoc.status);
+    data.allowedTransitions = getAllowedTransitions(caseDoc.status, caseDoc.track);
+    data.nextAction = getNextAction(caseDoc.status, caseDoc.track);
 
     res.status(200).json({ success: true, message: 'Case fetched successfully', data });
   } catch (error) {
@@ -386,64 +392,36 @@ const updateStatus = async (req, res, next) => {
       return next(new AppError('Case is closed — status cannot be changed', 400));
     }
 
-    if (!isValidTransition(caseDoc.status, newStatus)) {
+    // Role enforcement (spec §3): only owner/attorney/pm-type roles change status.
+    const roleNames = await getUserRoleNames(req.user._id);
+    if (!roleNames.some((r) => STATUS_CHANGE_ROLES.includes(r))) {
+      return next(new AppError('Your role is not permitted to change case status', 403));
+    }
+    const canOverride = roleNames.some((r) => GATE_OVERRIDE_ROLES.includes(r));
+    const override = req.body.override === true && canOverride;
+
+    // Track-aware sequence validation.
+    if (!isValidTransition(caseDoc.status, newStatus, caseDoc.track)) {
       return next(
-        new AppError(`Invalid transition from ${caseDoc.status} to ${newStatus}`, 400)
+        new AppError(`Invalid transition from ${caseDoc.status} to ${newStatus} (track ${caseDoc.track})`, 400)
       );
     }
 
-    caseDoc.status = newStatus;
-    caseDoc.phase = getPhaseForStatus(newStatus) || caseDoc.phase;
-    caseDoc.statusHistory.push({
-      status: newStatus,
-      changedBy: req.user._id,
-      changedAt: new Date(),
-      note: note || ''
-    });
-
-    // Mark closed on terminal states.
-    if (['NOT_SUITABLE', 'QUOTE_REJECTED', 'REJECTED', 'PATENT_LAPSED'].includes(newStatus)) {
-      caseDoc.isClosed = true;
-      caseDoc.closeReason = caseDoc.closeReason || `Reached terminal status ${newStatus}`;
+    // Business gates (payment / filing data) — bypassable only by an owner override.
+    if (!override) {
+      const gate = await checkStatusGate(caseDoc, newStatus);
+      if (!gate.ok) return next(new AppError(gate.message, 403));
     }
 
-    await caseDoc.save();
-
-    // Auto-create statutory deadlines on key transitions (best-effort).
-    if (newStatus === 'FILING_ACKNOWLEDGED') {
-      await createFilingDeadlines(caseDoc, req.user._id);
-    } else if (newStatus === 'FER_RECEIVED') {
-      await createFerResponseDeadline(caseDoc, req.user._id);
-    } else if (newStatus === 'PATENT_ACTIVE') {
-      await createRenewalSchedule(caseDoc, req.user._id);
-    }
-
-    // Auto-lock documents to read-only at the spec's locking transitions (§15).
-    const DOC_LOCK_MAP = {
-      DRAFT_APPROVED_BY_CLIENT: ['draft_v1', 'draft_final'],
-      FILING_ACKNOWLEDGED: ['filing_receipt', 'application_copy'],
-      PATENT_ACTIVE: ['grant_certificate']
-    };
-    if (DOC_LOCK_MAP[newStatus]) {
-      try {
-        await Document.updateMany(
-          { caseId: caseDoc._id, type: { $in: DOC_LOCK_MAP[newStatus] } },
-          { $set: { isLockedReadOnly: true } }
-        );
-      } catch (lockErr) {
-        logger.error('Document auto-lock failed', { error: lockErr.message });
-      }
-    }
+    const finalNote = override ? `${note || ''}${note ? ' ' : ''}[gate overridden]`.trim() : (note || '');
+    const result = await applyTransition(caseDoc, newStatus, { userId: req.user._id, note: finalNote });
+    if (!result.ok) return next(new AppError(result.error, 400));
 
     await caseDoc.populate(POPULATE);
-
     logger.info(`Case ${caseDoc.caseNumber} -> ${newStatus} by ${req.user?.name || 'unknown'}`);
 
     const data = caseDoc.toObject();
-    data.allowedTransitions = getAllowedTransitions(caseDoc.status);
-
-    // Fire client status-change notification (best-effort, non-blocking).
-    notifyCaseStatusChange(caseDoc).catch(() => {});
+    data.allowedTransitions = getAllowedTransitions(caseDoc.status, caseDoc.track);
 
     res.status(200).json({ success: true, message: 'Status updated', data });
   } catch (error) {
@@ -751,11 +729,110 @@ const getActivity = async (req, res, next) => {
   }
 };
 
+/* ----------------------- Filing readiness checklist ----------------------- */
+
+const DEFAULT_FILING_CHECKLIST = [
+  { key: 'applicant_details', label: 'Applicant name(s) & details confirmed' },
+  { key: 'inventor_details', label: 'Inventor name(s) & details confirmed' },
+  { key: 'jurisdiction', label: 'Jurisdiction(s) confirmed' },
+  { key: 'forms', label: 'Government forms prepared' },
+  { key: 'specification', label: 'Final specification attached' },
+  { key: 'classification', label: 'IPC / CPC classification assigned' }
+];
+
+/**
+ * GET /api/v1/cases/:id/checklist — filing readiness checklist (seeds defaults
+ * once the case has reached the filing phase).
+ */
+const getChecklist = async (req, res, next) => {
+  try {
+    const caseDoc = await Case.findById(req.params.id);
+    if (!caseDoc) return next(new AppError('Case not found', 404));
+
+    if ((!caseDoc.filingChecklist || caseDoc.filingChecklist.length === 0) && caseDoc.phase >= 6) {
+      caseDoc.filingChecklist = DEFAULT_FILING_CHECKLIST.map((i) => ({ ...i, done: false }));
+      await caseDoc.save();
+    }
+    res.status(200).json({ success: true, message: 'Checklist', data: caseDoc.filingChecklist || [] });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/v1/cases/:id/checklist — toggle one item. Body: { key, done }.
+ */
+const updateChecklistItem = async (req, res, next) => {
+  try {
+    const { key, done } = req.body;
+    const caseDoc = await Case.findById(req.params.id);
+    if (!caseDoc) return next(new AppError('Case not found', 404));
+
+    const item = (caseDoc.filingChecklist || []).find((i) => i.key === key);
+    if (!item) return next(new AppError('Checklist item not found', 404));
+
+    item.done = Boolean(done);
+    item.doneAt = item.done ? new Date() : undefined;
+    item.doneBy = item.done ? req.user._id : undefined;
+    await caseDoc.save();
+    res.status(200).json({ success: true, message: 'Checklist updated', data: caseDoc.filingChecklist });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/cases/attention — cases that need attention (role-scoped): stalled,
+ * on hold, with an overdue deadline, or with an overdue payment. Each with reasons.
+ */
+const attentionList = async (req, res, next) => {
+  try {
+    const roleNames = await getUserRoleNames(req.user._id);
+    const scope = buildCaseScopeFilter(roleNames, req.user._id);
+    const now = new Date();
+
+    const cases = await Case.find({ ...scope, isClosed: { $ne: true } })
+      .sort({ updatedAt: -1 })
+      .limit(300)
+      .populate(POPULATE)
+      .lean();
+    const caseIds = cases.map((c) => c._id);
+
+    const [overdueDl, overduePay] = await Promise.all([
+      Deadline.find({ caseId: { $in: caseIds }, status: 'active', statutoryDeadline: { $lt: now } }).distinct('caseId'),
+      Payment.find({ caseId: { $in: caseIds }, status: { $in: ['invoice_sent', 'overdue'] }, dueDate: { $lt: now } }).distinct('caseId')
+    ]);
+    const dlSet = new Set(overdueDl.map(String));
+    const paySet = new Set(overduePay.map(String));
+
+    const items = [];
+    for (const c of cases) {
+      const sla = getSla(c);
+      const reasons = [];
+      if (c.isOnHold) reasons.push('On hold');
+      if (sla.isStalled) reasons.push(`Stalled ${sla.daysInStatus}d in stage`);
+      if (dlSet.has(String(c._id))) reasons.push('Overdue deadline');
+      if (paySet.has(String(c._id))) reasons.push('Overdue payment');
+      if (reasons.length) {
+        c.sla = sla;
+        c.attentionReasons = reasons;
+        c.nextAction = getNextAction(c.status, c.track);
+        items.push(c);
+      }
+    }
+
+    res.status(200).json({ success: true, message: 'Cases needing attention', data: { items, total: items.length } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCase,
   createCaseFromEnquiry,
   publicIntake,
   listCases,
+  attentionList,
   getCaseById,
   updateCaseDetails,
   updateStatus,
@@ -763,6 +840,8 @@ module.exports = {
   holdCase,
   lockStrategy,
   changeTrack,
+  getChecklist,
+  updateChecklistItem,
   getTimeline,
   listNotes,
   createNote,
