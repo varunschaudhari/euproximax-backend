@@ -24,6 +24,7 @@ const portalRoutes = require('./portal');
 const documentRoutes = require('./document');
 const crmDashboardRoutes = require('./crmDashboard');
 const quoteRoutes = require('./quote');
+const settingsRoutes = require('./settings');
 
 // JWT secrets configuration (not used directly, but kept for reference)
 // JWT config is now accessed via config.jwt in middleware/auth.js
@@ -100,6 +101,7 @@ const routes = (app) => {
     app.use('/api/v1/contact', contactRoutes);
     app.use('/api/v1/chatbot', chatbotRoutes);
     app.use('/api/v1/consultation', consultationRoutes);
+    app.use('/api/v1/settings', settingsRoutes);
 
     // Protected routes (require authentication)
     app.use('/api/v1/user', userRoutes);

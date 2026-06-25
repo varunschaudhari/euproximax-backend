@@ -63,6 +63,49 @@ const generateInvoiceNumber = async () => {
 };
 
 /**
+ * GET /api/v1/payments — admin list all payments with optional filters
+ * Query: page, limit, status, caseId, clientId
+ */
+const listPayments = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
+    const skip = (page - 1) * limit;
+
+    // Build filter
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.caseId) filter.caseId = req.query.caseId;
+    if (req.query.clientId) filter.clientId = req.query.clientId;
+
+    const [payments, total] = await Promise.all([
+      Payment.find(filter)
+        .populate('caseId', 'caseNumber')
+        .populate('clientId', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Payment.countDocuments(filter)
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Payments fetched',
+      data: {
+        payments,
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/v1/payments/case/:caseId
  */
 const listByCase = async (req, res, next) => {
@@ -320,6 +363,7 @@ const createPlan = async (req, res, next) => {
 };
 
 module.exports = {
+  listPayments,
   listByCase,
   createPayment,
   createPlan,

@@ -89,5 +89,6 @@ router.get('/:id/checklist', requirePermission('CASE', 'READ'), idParam, handleV
 router.patch('/:id/checklist', requirePermission('CASE', 'UPDATE'), [...idParam, body('key').isString().notEmpty(), body('done').isBoolean()], handleValidationErrors, caseController.updateChecklistItem);
 router.patch('/:id/strategy', requirePermission('CASE', 'UPDATE'), idParam, handleValidationErrors, caseController.lockStrategy);
 router.patch('/:id/track', requirePermission('CASE', 'UPDATE'), trackValidation, handleValidationErrors, caseController.changeTrack);
+router.patch('/:id/inventors', requirePermission('CASE', 'UPDATE'), [...idParam, body('inventorIds').isArray().withMessage('inventorIds must be an array')], handleValidationErrors, caseController.manageInventors);
 
 module.exports = router;

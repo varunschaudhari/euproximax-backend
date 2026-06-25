@@ -127,6 +127,17 @@ router.post(
   userController.createUser
 );
 
+// POST /api/user/invite-inventor - Quick invite for co-inventors
+router.post(
+  '/invite-inventor',
+  [
+    body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters'),
+    body('email').isEmail().withMessage('Valid email is required').normalizeEmail()
+  ],
+  handleValidationErrors,
+  userController.inviteInventor
+);
+
 // DELETE /api/user/:id - Soft delete user
 router.delete(
   '/:id',

@@ -299,6 +299,31 @@ const notifyCaseHold = async (caseDoc, reason) => {
   }
 };
 
+/**
+ * Reminder to a client who hasn't completed a pending action (sign NDA, approve
+ * quote, review draft, etc.) after some days of inactivity.
+ */
+const notifyClientPendingAction = async (caseDoc, daysWaiting, actionPhrase) => {
+  try {
+    const client = await resolveClient(caseDoc.clientId);
+    if (!client?.email) return;
+    const subject = `Reminder: action needed on your patent case ${caseDoc.caseNumber}`;
+    const body = `Hi ${client.name || 'there'},<br/><br/>Your patent case <b>${caseDoc.caseNumber}</b> is waiting on you to <b>${actionPhrase}</b>. It's been ${daysWaiting} day(s) — please log in to your portal to continue so we can keep things moving.`;
+    await dispatch({
+      caseId: caseDoc._id,
+      recipientType: 'client',
+      to: client.email,
+      phone: client.whatsapp || client.phone,
+      channels: ['email', 'whatsapp'],
+      trigger: 'client_action_reminder',
+      subject,
+      body
+    });
+  } catch (err) {
+    logger.error('notifyClientPendingAction failed', { error: err.message });
+  }
+};
+
 module.exports = {
   dispatch,
   sendWhatsApp,
@@ -306,5 +331,6 @@ module.exports = {
   notifyPaymentEvent,
   notifyPaymentOverdue,
   notifyCaseHold,
+  notifyClientPendingAction,
   notifyDeadline
 };

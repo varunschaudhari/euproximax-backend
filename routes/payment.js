@@ -27,6 +27,9 @@ const idParam = [param('id').isMongoId().withMessage('Invalid payment ID')];
 // Note: POST /webhook is registered as a PUBLIC route in routes/index.js (no JWT).
 router.post('/webhook', paymentController.razorpayWebhook);
 
+// Admin list all payments (must come before /case/:caseId pattern)
+router.get('/', requirePermission('PAYMENT', 'READ'), paymentController.listPayments);
+
 router.get('/overdue', requirePermission('PAYMENT', 'READ'), paymentController.listOverdue);
 router.get('/case/:caseId', requirePermission('PAYMENT', 'READ'), param('caseId').isMongoId(), handleValidationErrors, paymentController.listByCase);
 router.post('/', requirePermission('PAYMENT', 'CREATE'), createValidation, handleValidationErrors, paymentController.createPayment);

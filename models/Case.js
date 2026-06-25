@@ -21,6 +21,9 @@ const CaseSchema = new Schema(
     assignedPM: { type: Schema.Types.ObjectId, ref: 'User' },
     assignedAttorney: { type: Schema.Types.ObjectId, ref: 'User' },
 
+    // Co-inventors (staff or portal users who see this case)
+    inventorIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+
     // Invention details
     inventionTitle: { type: String, trim: true },
     inventionDomain: { type: String, trim: true },
@@ -70,6 +73,10 @@ const CaseSchema = new Schema(
     revisionCount: { type: Number, default: 0 },
     scopeChangeFlagged: { type: Boolean, default: false },
 
+    // Client-nudge tracking (reminders for "awaiting client" statuses)
+    clientNudgeStatusAt: { type: Date },
+    clientNudgeDays: [{ type: Number }],
+
     // Flags
     isOnHold: { type: Boolean, default: false },
     holdReason: { type: String },
@@ -83,6 +90,7 @@ CaseSchema.index({ status: 1 });
 CaseSchema.index({ assignedPM: 1 });
 CaseSchema.index({ assignedAttorney: 1 });
 CaseSchema.index({ clientId: 1 });
+CaseSchema.index({ inventorIds: 1 });
 CaseSchema.index({ enquiryId: 1 });
 
 module.exports = mongoose.models.Case || mongoose.model('Case', CaseSchema);

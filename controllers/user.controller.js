@@ -632,6 +632,74 @@ const logout = async (req, res, next) => {
     }
 };
 
+/**
+ * POST /api/v1/user/invite-inventor
+ * Quick invite endpoint to create a user with client role (portal access).
+ * Generates a set-password token and emails an invite link.
+ * Body: { name, email }
+ */
+const inviteInventor = async (req, res, next) => {
+    try {
+        const { name, email } = req.body;
+        if (!name || !name.trim()) return next(new AppError('Name is required', 400));
+        if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) return next(new AppError('Valid email is required', 400));
+
+        const normalizedEmail = email.toLowerCase().trim();
+        const existingUser = await User.findOne({ email: normalizedEmail });
+        if (existingUser) return next(new AppError('User with this email already exists', 400));
+
+        // Create user with temporary password
+        const tempPassword = crypto.randomBytes(16).toString('hex');
+        const user = await User.create({
+            name: name.trim(),
+            email: normalizedEmail,
+            mobile: `na-${Date.now()}`, // placeholder
+            password: tempPassword
+        });
+
+        // Ensure client role exists
+        let clientRole = await Role.findOne({ rolename: 'client' });
+        if (!clientRole) clientRole = await Role.create({ rolename: 'client' });
+
+        // Assign client role
+        await UserRole.updateOne(
+            { userId: user._id, roleId: clientRole._id },
+            { $setOnInsert: { userId: user._id, roleId: clientRole._id } },
+            { upsert: true }
+        );
+
+        // Generate set-password token
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        user.resetPasswordToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+        user.resetPasswordExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+        await user.save({ validateBeforeSave: false });
+
+        // Email invite
+        const config = require('../utils/config');
+        const link = `${config.adminPortal.url || ''}/reset-password?token=${rawToken}`;
+        try {
+            const { sendMail } = require('../utils/notify');
+            await sendMail({
+                to: user.email,
+                subject: 'You\'ve been invited as a patent case co-inventor',
+                html: `<p>Hi ${user.name || ''},</p><p>You've been added as a co-inventor on a patent case. Set your password using the link below (valid 24 hours) to access the portal:</p><p><a href="${link}">${link}</a></p>`,
+                text: `Set your password: ${link}`
+            });
+        } catch (mailErr) {
+            logger.error('Failed to send inventor invite email', { error: mailErr.message });
+        }
+
+        logger.info(`Inventor invited: ${user.email}`);
+        res.status(201).json({
+            success: true,
+            message: 'Inventor invited successfully',
+            data: { userId: user._id, email: user.email, name: user.name }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -643,6 +711,7 @@ module.exports = {
     updateUser,
     deleteUser,
     createUser,
+    inviteInventor,
     forgotPassword,
     resetPassword
 };

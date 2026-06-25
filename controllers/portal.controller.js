@@ -48,9 +48,15 @@ const getClient = async (req) => {
   return client;
 };
 
-/** Fetch a case only if it belongs to this client. */
-const getOwnedCase = async (clientId, caseId) =>
-  Case.findOne({ _id: caseId, clientId });
+/** Fetch a case only if it belongs to this user (as company client or as co-inventor). */
+const getOwnedCase = async (userId, clientId, caseId) =>
+  Case.findOne({
+    _id: caseId,
+    $or: [
+      { clientId }, // User's company is the client
+      { inventorIds: userId } // User is a co-inventor
+    ]
+  });
 
 const caseSummary = (c) => ({
   _id: c._id,
@@ -72,7 +78,12 @@ const getMe = async (req, res, next) => {
   try {
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const cases = await Case.find({ clientId: client._id }).sort({ updatedAt: -1 });
+    const cases = await Case.find({
+      $or: [
+        { clientId: client._id },
+        { inventorIds: req.user._id }
+      ]
+    }).sort({ updatedAt: -1 });
     res.status(200).json({
       success: true,
       message: 'Portal profile',
@@ -93,7 +104,7 @@ const getCase = async (req, res, next) => {
   try {
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const c = await getOwnedCase(client._id, req.params.id);
+    const c = await getOwnedCase(req.user._id, client._id, req.params.id);
     if (!c) return next(new AppError('Case not found', 404));
 
     res.status(200).json({
@@ -138,7 +149,7 @@ const caseAction = async (req, res, next) => {
 
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const c = await getOwnedCase(client._id, req.params.id);
+    const c = await getOwnedCase(req.user._id, client._id, req.params.id);
     if (!c) return next(new AppError('Case not found', 404));
 
     if (c.status !== def.from) {
@@ -201,7 +212,7 @@ const getTimeline = async (req, res, next) => {
   try {
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const c = await getOwnedCase(client._id, req.params.id);
+    const c = await getOwnedCase(req.user._id, client._id, req.params.id);
     if (!c) return next(new AppError('Case not found', 404));
 
     const history = (c.statusHistory || []).map((h) => ({
@@ -224,7 +235,7 @@ const getDocuments = async (req, res, next) => {
   try {
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const c = await getOwnedCase(client._id, req.params.id);
+    const c = await getOwnedCase(req.user._id, client._id, req.params.id);
     if (!c) return next(new AppError('Case not found', 404));
 
     const docs = await Document.find({ caseId: c._id, isVisibleToClient: true })
@@ -254,7 +265,7 @@ const downloadDocument = async (req, res, next) => {
   try {
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const c = await getOwnedCase(client._id, req.params.id);
+    const c = await getOwnedCase(req.user._id, client._id, req.params.id);
     if (!c) return next(new AppError('Case not found', 404));
 
     const doc = await Document.findOne({ _id: req.params.docId, caseId: c._id, isVisibleToClient: true });
@@ -279,7 +290,7 @@ const getQuote = async (req, res, next) => {
   try {
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const c = await getOwnedCase(client._id, req.params.id);
+    const c = await getOwnedCase(req.user._id, client._id, req.params.id);
     if (!c) return next(new AppError('Case not found', 404));
 
     const quote = await Quote.findOne({ caseId: c._id });
@@ -320,7 +331,7 @@ const getPayments = async (req, res, next) => {
   try {
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const c = await getOwnedCase(client._id, req.params.id);
+    const c = await getOwnedCase(req.user._id, client._id, req.params.id);
     if (!c) return next(new AppError('Case not found', 404));
 
     const payments = await Payment.find({ caseId: c._id }).sort({ createdAt: -1 });
@@ -390,7 +401,7 @@ const submitFeedback = async (req, res, next) => {
 
     const client = await getClient(req);
     if (!client) return next(new AppError('No client profile linked to this account', 403));
-    const c = await getOwnedCase(client._id, req.params.id);
+    const c = await getOwnedCase(req.user._id, client._id, req.params.id);
     if (!c) return next(new AppError('Case not found', 404));
 
     await Notification.create({

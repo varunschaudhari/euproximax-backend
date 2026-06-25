@@ -61,7 +61,8 @@ const createCase = async (req, res, next) => {
       inventionTitle,
       inventionDomain,
       inventionSummary,
-      jurisdiction
+      jurisdiction,
+      inventorIds
     } = req.body;
 
     if (!track || !['A', 'B'].includes(track)) {
@@ -99,6 +100,7 @@ const createCase = async (req, res, next) => {
       jurisdiction: Array.isArray(jurisdiction) ? jurisdiction : undefined,
       assignedPM: req.body.assignedPM || undefined,
       assignedAttorney: req.body.assignedAttorney || undefined,
+      inventorIds: Array.isArray(inventorIds) && inventorIds.length > 0 ? inventorIds : undefined,
       statusHistory: [
         {
           status: INITIAL_STATUS,
@@ -134,7 +136,7 @@ const createCase = async (req, res, next) => {
  */
 const createCaseFromEnquiry = async (req, res, next) => {
   try {
-    const { enquiryId, track, inventionTitle, inventionDomain, inventionSummary, jurisdiction } = req.body;
+    const { enquiryId, track, inventionTitle, inventionDomain, inventionSummary, jurisdiction, inventorIds } = req.body;
 
     if (!track || !['A', 'B'].includes(track)) {
       return next(new AppError('A valid track (A or B) is required', 400));
@@ -176,6 +178,7 @@ const createCaseFromEnquiry = async (req, res, next) => {
       inventionSummary: inventionSummary || enquiry.message,
       jurisdiction: Array.isArray(jurisdiction) ? jurisdiction : undefined,
       assignedPM: enquiry.assignedTo || undefined,
+      inventorIds: Array.isArray(inventorIds) && inventorIds.length > 0 ? inventorIds : undefined,
       statusHistory: [
         {
           status: INITIAL_STATUS,
@@ -827,6 +830,45 @@ const attentionList = async (req, res, next) => {
   }
 };
 
+/* ----------------------------- Co-inventors Management ----------------------------- */
+
+/**
+ * PATCH /api/v1/cases/:id/inventors — add or remove co-inventors from a case.
+ * Body: { inventorIds: [userId1, userId2, ...] } (replaces current list)
+ */
+const manageInventors = async (req, res, next) => {
+  try {
+    const { inventorIds } = req.body;
+    if (!Array.isArray(inventorIds)) {
+      return next(new AppError('inventorIds must be an array of user IDs', 400));
+    }
+
+    const caseDoc = await Case.findById(req.params.id);
+    if (!caseDoc) return next(new AppError('Case not found', 404));
+
+    // Validate all inventor IDs exist
+    const User = require('../models/User');
+    const inventors = await User.find({ _id: { $in: inventorIds } }).lean();
+    if (inventors.length !== inventorIds.length) {
+      return next(new AppError('One or more inventor IDs are invalid', 400));
+    }
+
+    caseDoc.inventorIds = inventorIds;
+    await caseDoc.save();
+
+    await caseDoc.populate('inventorIds', 'name email');
+    logger.info(`Co-inventors updated for case ${caseDoc.caseNumber}: ${inventorIds.length} inventor(s)`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Co-inventors updated successfully',
+      data: { caseNumber: caseDoc.caseNumber, inventorIds: caseDoc.inventorIds }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCase,
   createCaseFromEnquiry,
@@ -846,5 +888,6 @@ module.exports = {
   listNotes,
   createNote,
   deleteNote,
-  getActivity
+  getActivity,
+  manageInventors
 };

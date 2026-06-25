@@ -11,6 +11,7 @@ const Deadline = require('../models/Deadline');
 const logger = require('../utils/logger');
 const { notifyDeadline } = require('./notify');
 const { runPaymentOverdueSweep } = require('./paymentEngine');
+const { runClientNudgeSweep } = require('./clientNudgeEngine');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -84,6 +85,7 @@ let schedulerHandle = null;
 const runAllSweeps = async () => {
   await runDeadlineSweep().catch((err) => logger.error('Deadline sweep error', { error: err.message }));
   await runPaymentOverdueSweep().catch((err) => logger.error('Payment sweep error', { error: err.message }));
+  await runClientNudgeSweep().catch((err) => logger.error('Client nudge sweep error', { error: err.message }));
 };
 
 const startDeadlineScheduler = () => {
