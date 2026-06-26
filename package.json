@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init": "node bin/init.js"
+    "init": "node bin/init.js",
+    "seed:dummy": "node bin/seedDummyData.js"
   },
   "keywords": [
     "express",
