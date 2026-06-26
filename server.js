@@ -59,9 +59,12 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 const allowedOrigins = [
   'http://localhost:5173', // Website (default Vite port)
   'http://localhost:5174', // Admin (custom Vite port)
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
   'https://euproximax.com',
   'https://www.euproximax.com',
   'https://admin.euproximax.com',
+  'https://api.euproximax.com',
   config.website.url,
   config.adminPortal.url,
 ].filter(Boolean); // Remove undefined values
@@ -70,16 +73,15 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    // In development, allow localhost origins
-    if (config.server.nodeEnv !== 'production') {
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-        return callback(null, true);
-      }
+
+    // Always allow localhost in any environment for development
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
     }
-    
+
     // Check if origin is in allowed list
     if (allowedOrigins.includes(origin)) {
+      logger.debug(`CORS: Allowing origin: ${origin}`);
       callback(null, true);
     } else {
       // Log the rejected origin for debugging
